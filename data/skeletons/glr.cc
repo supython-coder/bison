@@ -1084,16 +1084,16 @@ struct yyGLRStack {
     YYLONGJMP (yyexception_buffer, 2);
   }
 
+  _Noreturn void
+  yyFail (const char* yymsg]b4_pure_formals[)
+  {
+    if (yymsg != YY_NULLPTR)
+      yyerror (]b4_yyerror_args[yymsg);
+    YYLONGJMP (yyexception_buffer, 1);
+  }
+
 };
 
-
-_Noreturn static void
-yyFail (yyGLRStack* yystackp]b4_pure_formals[, const char* yymsg)
-{
-  if (yymsg != YY_NULLPTR)
-    yyerror (]b4_yyerror_args[yymsg);
-  YYLONGJMP (yystackp->yyexception_buffer, 1);
-}
 
 #if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
 /** A printable representation of TOKEN.  */
@@ -2492,7 +2492,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
         yySymbol yytoken;
         int yyj;
         if (yychar == YYEOF)
-          yyFail (yystackp][]b4_lpure_args[, YY_NULLPTR);
+          yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
         if (yychar != YYEMPTY)
           {]b4_locations_if([[
             /* We throw away the lookahead, but the error range
@@ -2528,7 +2528,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
       if (yystackp->yytops.yystates[yyk] != YY_NULLPTR)
         break;
     if (yyk >= yystackp->yytops.yysize)
-      yyFail (yystackp][]b4_lpure_args[, YY_NULLPTR);
+      yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
     for (yyk += 1; yyk < yystackp->yytops.yysize; yyk += 1)
       yymarkStackDeleted (yystackp, yyk);
     yyremoveDeletes (yystackp);
@@ -2568,7 +2568,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
       yystackp->yyspaceLeft += 1;
     }
   if (yystackp->yytops.yystates[0] == YY_NULLPTR)
-    yyFail (yystackp][]b4_lpure_args[, YY_NULLPTR);
+    yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
 }
 
 #define YYCHK1(YYE)                                                          \
@@ -2707,7 +2707,7 @@ b4_dollar_popdef])[]dnl
             {
               yyundeleteLastStack (&yystack);
               if (yystack.yytops.yysize == 0)
-                yyFail (&yystack][]b4_lpure_args[, YY_("syntax error"));
+                yystack.yyFail (YY_("syntax error")][]b4_lpure_args[);
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
               YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));]b4_locations_if([[
               yystack.yyerror_range[1].yystate.yyloc = yylloc;]])[
