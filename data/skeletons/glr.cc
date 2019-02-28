@@ -930,11 +930,11 @@ typedef int yySymbol;
 /** Item references, as in LALR(1) machine */
 typedef short yyItemNum;
 
-typedef struct yyGLRState yyGLRState;
-typedef struct yyGLRStateSet yyGLRStateSet;
-typedef struct yySemanticOption yySemanticOption;
-typedef union yyGLRStackItem yyGLRStackItem;
-typedef struct yyGLRStack yyGLRStack;
+// Forward declarations.
+struct yyGLRStateSet;
+struct yySemanticOption;
+union yyGLRStackItem;
+struct yyGLRStack;
 
 struct yyGLRState {
   /** Type tag: always true.  */
