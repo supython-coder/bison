@@ -1092,6 +1092,21 @@ struct yyGLRStack {
     YYLONGJMP (yyexception_buffer, 1);
   }
 
+  /** Return a fresh GLRStackItem in YYSTACKP.  The item is an LR state
+   *  if YYISSTATE, and otherwise a semantic option.  Callers should call
+   *  YY_RESERVE_GLRSTACK afterwards to make sure there is sufficient
+   *  headroom.  */
+
+  inline yyGLRStackItem*
+  yynewGLRStackItem (yybool yyisState)
+  {
+    yyGLRStackItem* yynewItem = yynextFree;
+    yyspaceLeft -= 1;
+    yynextFree += 1;
+    yynewItem->yystate.yyisState = yyisState;
+    return yynewItem;
+  }
+
 };
 
 
@@ -1408,21 +1423,6 @@ yyisErrorAction (int yyaction)
 
                                 /* GLRStates */
 
-/** Return a fresh GLRStackItem in YYSTACKP.  The item is an LR state
- *  if YYISSTATE, and otherwise a semantic option.  Callers should call
- *  YY_RESERVE_GLRSTACK afterwards to make sure there is sufficient
- *  headroom.  */
-
-static inline yyGLRStackItem*
-yynewGLRStackItem (yyGLRStack* yystackp, yybool yyisState)
-{
-  yyGLRStackItem* yynewItem = yystackp->yynextFree;
-  yystackp->yyspaceLeft -= 1;
-  yystackp->yynextFree += 1;
-  yynewItem->yystate.yyisState = yyisState;
-  return yynewItem;
-}
-
 /** Add a new semantic action that will execute the action for rule
  *  YYRULE on the semantic values in YYRHS to the list of
  *  alternative actions for YYSTATE.  Assumes that YYRHS comes from
@@ -1432,7 +1432,7 @@ yyaddDeferredAction (yyGLRStack* yystackp, size_t yyk, yyGLRState* yystate,
                      yyGLRState* yyrhs, yyRuleNum yyrule)
 {
   yySemanticOption* yynewOption =
-    &yynewGLRStackItem (yystackp, yyfalse)->yyoption;
+    &yystackp->yynewGLRStackItem (yyfalse)->yyoption;
   YYASSERT (!yynewOption->yyisState);
   yynewOption->yystate = yyrhs;
   yynewOption->yyrule = yyrule;
@@ -1582,7 +1582,7 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
             size_t yyposn,
             YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[)
 {
-  yyGLRState* yynewState = &yynewGLRStackItem (yystackp, yytrue)->yystate;
+  yyGLRState* yynewState = &yystackp->yynewGLRStackItem (yytrue)->yystate;
 
   yynewState->yylrState = yylrState;
   yynewState->yyposn = yyposn;
@@ -1602,7 +1602,7 @@ static inline void
 yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
                  size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule)
 {
-  yyGLRState* yynewState = &yynewGLRStackItem (yystackp, yytrue)->yystate;
+  yyGLRState* yynewState = &yystackp->yynewGLRStackItem (yytrue)->yystate;
   YYASSERT (yynewState->yyisState);
 
   yynewState->yylrState = yylrState;
