@@ -832,13 +832,13 @@ static void yypdumpstack (struct yyGLRStack* yystackp)
 # define YY_RESERVE_GLRSTACK(Yystack)                   \
   do {                                                  \
     if (Yystack->yyspaceLeft < YYHEADROOM)              \
-      yyexpandGLRStack (Yystack);                       \
+      Yystack->yyexpandGLRStack ();                       \
   } while (0)
 #else
 # define YY_RESERVE_GLRSTACK(Yystack)                   \
   do {                                                  \
     if (Yystack->yyspaceLeft < YYHEADROOM)              \
-      yyMemoryExhausted (Yystack);                      \
+      Yystack->yyMemoryExhausted();                     \
   } while (0)
 #endif
 
@@ -1011,11 +1011,81 @@ struct yyGLRStack {
   yyGLRState* yysplitPoint;
   yyGLRState* yylastDeleted;
   yyGLRStateSet yytops;
+#if YYSTACKEXPANDABLE
+# define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
+  &((YYTOITEMS) - ((YYFROMITEMS) - (yyGLRStackItem*) (YYX)))->YYTYPE
+
+  /** If *YYSTACKP is expandable, extend it.  WARNING: Pointers into the
+      stack from outside should be considered invalid after this call.
+      We always expand when there are 1 or fewer items left AFTER an
+      allocation, so that we can avoid having external pointers exist
+      across an allocation.  */
+  void
+  yyexpandGLRStack()
+  {
+    yyGLRStackItem* yynewItems;
+    yyGLRStackItem* yyp0, *yyp1;
+    size_t yynewSize;
+    size_t yyn;
+    size_t yysize = (size_t) (yynextFree - yyitems);
+    if (YYMAXDEPTH - YYHEADROOM < yysize)
+      yyMemoryExhausted ();
+    yynewSize = 2*yysize;
+    if (YYMAXDEPTH < yynewSize)
+      yynewSize = YYMAXDEPTH;
+    yynewItems = (yyGLRStackItem*) YYMALLOC (yynewSize * sizeof yynewItems[0]);
+    if (! yynewItems)
+      yyMemoryExhausted ();
+    for (yyp0 = yyitems, yyp1 = yynewItems, yyn = yysize;
+         0 < yyn;
+         yyn -= 1, yyp0 += 1, yyp1 += 1)
+      {
+        *yyp1 = *yyp0;
+        if (*(yybool *) yyp0)
+          {
+            yyGLRState* yys0 = &yyp0->yystate;
+            yyGLRState* yys1 = &yyp1->yystate;
+            if (yys0->yypred != YY_NULLPTR)
+              yys1->yypred =
+                YYRELOC (yyp0, yyp1, yys0->yypred, yystate);
+            if (! yys0->yyresolved &&
+                yys0->yysemantics.yyfirstVal != YY_NULLPTR)
+              yys1->yysemantics.yyfirstVal =
+                YYRELOC (yyp0, yyp1, yys0->yysemantics.yyfirstVal, yyoption);
+          }
+        else
+          {
+            yySemanticOption* yyv0 = &yyp0->yyoption;
+            yySemanticOption* yyv1 = &yyp1->yyoption;
+            if (yyv0->yystate != YY_NULLPTR)
+              yyv1->yystate = YYRELOC (yyp0, yyp1, yyv0->yystate, yystate);
+            if (yyv0->yynext != YY_NULLPTR)
+              yyv1->yynext = YYRELOC (yyp0, yyp1, yyv0->yynext, yyoption);
+          }
+      }
+    if (yysplitPoint != YY_NULLPTR)
+      yysplitPoint = YYRELOC (yyitems, yynewItems,
+                                        yysplitPoint, yystate);
+
+    for (yyn = 0; yyn < yytops.yysize; yyn += 1)
+      if (yytops.yystates[yyn] != YY_NULLPTR)
+        yytops.yystates[yyn] =
+          YYRELOC (yyitems, yynewItems,
+                   yytops.yystates[yyn], yystate);
+    YYFREE (yyitems);
+    yyitems = yynewItems;
+    yynextFree = yynewItems + yysize;
+    yyspaceLeft = yynewSize - yysize;
+  }
+#endif
+  _Noreturn void
+  yyMemoryExhausted ()
+  {
+    YYLONGJMP (yyexception_buffer, 2);
+  }
+
 };
 
-#if YYSTACKEXPANDABLE
-static void yyexpandGLRStack (yyGLRStack* yystackp);
-#endif
 
 _Noreturn static void
 yyFail (yyGLRStack* yystackp]b4_pure_formals[, const char* yymsg)
@@ -1023,12 +1093,6 @@ yyFail (yyGLRStack* yystackp]b4_pure_formals[, const char* yymsg)
   if (yymsg != YY_NULLPTR)
     yyerror (]b4_yyerror_args[yymsg);
   YYLONGJMP (yystackp->yyexception_buffer, 1);
-}
-
-_Noreturn static void
-yyMemoryExhausted (yyGLRStack* yystackp)
-{
-  YYLONGJMP (yystackp->yyexception_buffer, 2);
 }
 
 #if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
@@ -1433,72 +1497,6 @@ yyinitGLRStack (yyGLRStack* yystackp, size_t yysize)
 }
 
 
-#if YYSTACKEXPANDABLE
-# define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
-  &((YYTOITEMS) - ((YYFROMITEMS) - (yyGLRStackItem*) (YYX)))->YYTYPE
-
-/** If *YYSTACKP is expandable, extend it.  WARNING: Pointers into the
-    stack from outside should be considered invalid after this call.
-    We always expand when there are 1 or fewer items left AFTER an
-    allocation, so that we can avoid having external pointers exist
-    across an allocation.  */
-static void
-yyexpandGLRStack (yyGLRStack* yystackp)
-{
-  yyGLRStackItem* yynewItems;
-  yyGLRStackItem* yyp0, *yyp1;
-  size_t yynewSize;
-  size_t yyn;
-  size_t yysize = (size_t) (yystackp->yynextFree - yystackp->yyitems);
-  if (YYMAXDEPTH - YYHEADROOM < yysize)
-    yyMemoryExhausted (yystackp);
-  yynewSize = 2*yysize;
-  if (YYMAXDEPTH < yynewSize)
-    yynewSize = YYMAXDEPTH;
-  yynewItems = (yyGLRStackItem*) YYMALLOC (yynewSize * sizeof yynewItems[0]);
-  if (! yynewItems)
-    yyMemoryExhausted (yystackp);
-  for (yyp0 = yystackp->yyitems, yyp1 = yynewItems, yyn = yysize;
-       0 < yyn;
-       yyn -= 1, yyp0 += 1, yyp1 += 1)
-    {
-      *yyp1 = *yyp0;
-      if (*(yybool *) yyp0)
-        {
-          yyGLRState* yys0 = &yyp0->yystate;
-          yyGLRState* yys1 = &yyp1->yystate;
-          if (yys0->yypred != YY_NULLPTR)
-            yys1->yypred =
-              YYRELOC (yyp0, yyp1, yys0->yypred, yystate);
-          if (! yys0->yyresolved && yys0->yysemantics.yyfirstVal != YY_NULLPTR)
-            yys1->yysemantics.yyfirstVal =
-              YYRELOC (yyp0, yyp1, yys0->yysemantics.yyfirstVal, yyoption);
-        }
-      else
-        {
-          yySemanticOption* yyv0 = &yyp0->yyoption;
-          yySemanticOption* yyv1 = &yyp1->yyoption;
-          if (yyv0->yystate != YY_NULLPTR)
-            yyv1->yystate = YYRELOC (yyp0, yyp1, yyv0->yystate, yystate);
-          if (yyv0->yynext != YY_NULLPTR)
-            yyv1->yynext = YYRELOC (yyp0, yyp1, yyv0->yynext, yyoption);
-        }
-    }
-  if (yystackp->yysplitPoint != YY_NULLPTR)
-    yystackp->yysplitPoint = YYRELOC (yystackp->yyitems, yynewItems,
-                                      yystackp->yysplitPoint, yystate);
-
-  for (yyn = 0; yyn < yystackp->yytops.yysize; yyn += 1)
-    if (yystackp->yytops.yystates[yyn] != YY_NULLPTR)
-      yystackp->yytops.yystates[yyn] =
-        YYRELOC (yystackp->yyitems, yynewItems,
-                 yystackp->yytops.yystates[yyn], yystate);
-  YYFREE (yystackp->yyitems);
-  yystackp->yyitems = yynewItems;
-  yystackp->yynextFree = yynewItems + yysize;
-  yystackp->yyspaceLeft = yynewSize - yysize;
-}
-#endif
 
 static void
 yyfreeGLRStack (yyGLRStack* yystackp)
@@ -1801,7 +1799,7 @@ yysplitStack (yyGLRStack* yystackp, size_t yyk)
 
       if (yystackp->yytops.yycapacity
           > (YYSIZEMAX / (2 * sizeof yynewStates[0])))
-        yyMemoryExhausted (yystackp);
+        yystackp->yyMemoryExhausted();
       yystackp->yytops.yycapacity *= 2;
 
       yynewStates =
@@ -1809,7 +1807,7 @@ yysplitStack (yyGLRStack* yystackp, size_t yyk)
                                   (yystackp->yytops.yycapacity
                                    * sizeof yynewStates[0]));
       if (yynewStates == YY_NULLPTR)
-        yyMemoryExhausted (yystackp);
+        yystackp->yyMemoryExhausted();
       yystackp->yytops.yystates = yynewStates;
 
       yynewLookaheadNeeds =
@@ -1817,7 +1815,7 @@ yysplitStack (yyGLRStack* yystackp, size_t yyk)
                              (yystackp->yytops.yycapacity
                               * sizeof yynewLookaheadNeeds[0]));
       if (yynewLookaheadNeeds == YY_NULLPTR)
-        yyMemoryExhausted (yystackp);
+        yystackp->yyMemoryExhausted();
       yystackp->yytops.yylookaheadNeeds = yynewLookaheadNeeds;
     }
   yystackp->yytops.yystates[yystackp->yytops.yysize]
@@ -2473,7 +2471,7 @@ yyreportSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
   else
     {
       yyerror (]b4_lyyerror_args[YY_("syntax error"));
-      yyMemoryExhausted (yystackp);
+      yystackp->yyMemoryExhausted();
     }
   }
 #endif /* YYERROR_VERBOSE */
