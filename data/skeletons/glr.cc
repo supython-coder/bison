@@ -993,6 +993,7 @@ union yyGLRStackItem {
   yySemanticOption yyoption;
 };
 
+#define yystackp this
 struct yyGLRStack {
   int yyerrState;
 ]b4_locations_if([[  /* To compute the location of the error token.  */
@@ -1092,6 +1093,8 @@ struct yyGLRStack {
     YYLONGJMP (yyexception_buffer, 1);
   }
 
+                                /* GLRStates */
+
   /** Return a fresh GLRStackItem in YYSTACKP.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
    *  YY_RESERVE_GLRSTACK afterwards to make sure there is sufficient
@@ -1107,7 +1110,35 @@ struct yyGLRStack {
     return yynewItem;
   }
 
+  /** Add a new semantic action that will execute the action for rule
+   *  YYRULE on the semantic values in YYRHS to the list of
+   *  alternative actions for YYSTATE.  Assumes that YYRHS comes from
+   *  stack #YYK of *YYSTACKP. */
+  void
+  yyaddDeferredAction (size_t yyk, yyGLRState* yystate,
+                       yyGLRState* yyrhs, yyRuleNum yyrule)
+  {
+    yySemanticOption* yynewOption =
+      &yynewGLRStackItem (yyfalse)->yyoption;
+    YYASSERT (!yynewOption->yyisState);
+    yynewOption->yystate = yyrhs;
+    yynewOption->yyrule = yyrule;
+    if (yytops.yylookaheadNeeds[yyk])
+      {
+        yynewOption->yyrawchar = yychar;
+        yynewOption->yyval = yylval;]b4_locations_if([
+        yynewOption->yyloc = yylloc;])[
+      }
+    else
+      yynewOption->yyrawchar = YYEMPTY;
+    yynewOption->yynext = yystate->yysemantics.yyfirstVal;
+    yystate->yysemantics.yyfirstVal = yynewOption;
+
+    YY_RESERVE_GLRSTACK (this);
+  }
+
 };
+#undef yystackp
 
 
 #if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
@@ -1421,35 +1452,6 @@ yyisErrorAction (int yyaction)
   return (yybool) (yyaction == 0);
 }
 
-                                /* GLRStates */
-
-/** Add a new semantic action that will execute the action for rule
- *  YYRULE on the semantic values in YYRHS to the list of
- *  alternative actions for YYSTATE.  Assumes that YYRHS comes from
- *  stack #YYK of *YYSTACKP. */
-static void
-yyaddDeferredAction (yyGLRStack* yystackp, size_t yyk, yyGLRState* yystate,
-                     yyGLRState* yyrhs, yyRuleNum yyrule)
-{
-  yySemanticOption* yynewOption =
-    &yystackp->yynewGLRStackItem (yyfalse)->yyoption;
-  YYASSERT (!yynewOption->yyisState);
-  yynewOption->yystate = yyrhs;
-  yynewOption->yyrule = yyrule;
-  if (yystackp->yytops.yylookaheadNeeds[yyk])
-    {
-      yynewOption->yyrawchar = yychar;
-      yynewOption->yyval = yylval;]b4_locations_if([
-      yynewOption->yyloc = yylloc;])[
-    }
-  else
-    yynewOption->yyrawchar = YYEMPTY;
-  yynewOption->yynext = yystate->yysemantics.yyfirstVal;
-  yystate->yysemantics.yyfirstVal = yynewOption;
-
-  YY_RESERVE_GLRSTACK (yystackp);
-}
-
                                 /* GLRStacks */
 
 /** Initialize YYSET to a singleton set containing an empty stack.  */
@@ -1613,7 +1615,7 @@ yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
   yystackp->yytops.yystates[yyk] = yynewState;
 
   /* Invokes YY_RESERVE_GLRSTACK.  */
-  yyaddDeferredAction (yystackp, yyk, yynewState, yyrhs, yyrule);
+  yystackp->yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
 }
 
 #if !]b4_api_PREFIX[DEBUG
@@ -1768,7 +1770,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
               {
                 if (yyp->yylrState == yynewLRState && yyp->yypred == yys)
                   {
-                    yyaddDeferredAction (yystackp, yyk, yyp, yys0, yyrule);
+                    yystackp->yyaddDeferredAction (yyk, yyp, yys0, yyrule);
                     yymarkStackDeleted (yystackp, yyk);
                     YYDPRINTF ((stderr, "Merging stack %lu into stack %lu.\n",
                                 (unsigned long) yyk,
