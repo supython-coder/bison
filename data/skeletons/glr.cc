@@ -936,6 +936,10 @@ struct yySemanticOption;
 union yyGLRStackItem;
 struct yyGLRStack;
 
+static yybool
+yyinitStateSet (yyGLRStateSet* yyset);
+
+
 struct yyGLRState {
   /** Type tag: always true.  */
   yybool yyisState;
@@ -995,22 +999,38 @@ union yyGLRStackItem {
 
 #define yystackp this
 struct yyGLRStack {
-  int yyerrState;
+
+  /** Initialize *YYSTACKP to a single empty stack, with total maximum
+   *  capacity for all stacks of YYSIZE.  */
+  // TODO: migrate to a constructor?
+  yybool
+  yyinitGLRStack (size_t yysize)
+  {
+    yyspaceLeft = yysize;
+    yyitems =
+      (yyGLRStackItem*) YYMALLOC (yysize * sizeof yynextFree[0]);
+    if (!yyitems)
+      return yyfalse;
+    yynextFree = yyitems;
+    return yyinitStateSet (&yytops);
+  }
+
+  int yyerrState = 0;
 ]b4_locations_if([[  /* To compute the location of the error token.  */
   yyGLRStackItem yyerror_range[3];]])[
 ]b4_pure_if(
 [
-  int yyerrcnt;
-  int yyrawchar;
+  int yyerrcnt = 0;
+  int yyrawchar = 0;
   YYSTYPE yyval;]b4_locations_if([[
   YYLTYPE yyloc;]])[
 ])[
   YYJMP_BUF yyexception_buffer;
-  yyGLRStackItem* yyitems;
-  yyGLRStackItem* yynextFree;
-  size_t yyspaceLeft;
-  yyGLRState* yysplitPoint;
-  yyGLRState* yylastDeleted;
+  yyGLRStackItem* yyitems = YY_NULLPTR;
+  yyGLRStackItem* yynextFree = YY_NULLPTR;
+  size_t yyspaceLeft = 0;
+  yyGLRState* yysplitPoint = YY_NULLPTR;
+  yyGLRState* yylastDeleted = YY_NULLPTR;
   yyGLRStateSet yytops;
 #if YYSTACKEXPANDABLE
 # define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
@@ -1479,26 +1499,6 @@ static void yyfreeStateSet (yyGLRStateSet* yyset)
   YYFREE (yyset->yystates);
   YYFREE (yyset->yylookaheadNeeds);
 }
-
-/** Initialize *YYSTACKP to a single empty stack, with total maximum
- *  capacity for all stacks of YYSIZE.  */
-static yybool
-yyinitGLRStack (yyGLRStack* yystackp, size_t yysize)
-{
-  yystackp->yyerrState = 0;
-  yynerrs = 0;
-  yystackp->yyspaceLeft = yysize;
-  yystackp->yyitems =
-    (yyGLRStackItem*) YYMALLOC (yysize * sizeof yystackp->yynextFree[0]);
-  if (!yystackp->yyitems)
-    return yyfalse;
-  yystackp->yynextFree = yystackp->yyitems;
-  yystackp->yysplitPoint = YY_NULLPTR;
-  yystackp->yylastDeleted = YY_NULLPTR;
-  return yyinitStateSet (&yystackp->yytops);
-}
-
-
 
 static void
 yyfreeGLRStack (yyGLRStack* yystackp)
@@ -2610,7 +2610,7 @@ b4_dollar_pushdef([yylval], [], [], [yylloc])dnl
   b4_user_initial_action
 b4_dollar_popdef])[]dnl
 [
-  if (! yyinitGLRStack (yystackp, YYINITDEPTH))
+  if (! yystackp->yyinitGLRStack (YYINITDEPTH))
     goto yyexhaustedlab;
   switch (YYSETJMP (yystack.yyexception_buffer))
     {
