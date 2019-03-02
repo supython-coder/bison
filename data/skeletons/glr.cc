@@ -939,6 +939,7 @@ struct yyGLRStack;
 static yybool
 yyinitStateSet (yyGLRStateSet* yyset);
 
+static void yyfreeStateSet (yyGLRStateSet* yyset);
 
 struct yyGLRState {
   /** Type tag: always true.  */
@@ -1013,6 +1014,12 @@ struct yyGLRStack {
       return yyfalse;
     yynextFree = yyitems;
     return yyinitStateSet (&yytops);
+  }
+
+  ~yyGLRStack ()
+  {
+    YYFREE (yyitems);
+    yyfreeStateSet (&yytops);
   }
 
   int yyerrState = 0;
@@ -1498,13 +1505,6 @@ static void yyfreeStateSet (yyGLRStateSet* yyset)
 {
   YYFREE (yyset->yystates);
   YYFREE (yyset->yylookaheadNeeds);
-}
-
-static void
-yyfreeGLRStack (yyGLRStack* yystackp)
-{
-  YYFREE (yystackp->yyitems);
-  yyfreeStateSet (&yystackp->yytops);
 }
 
 /** Assuming that YYS is a GLRState somewhere on *YYSTACKP, update the
@@ -2803,7 +2803,6 @@ b4_dollar_popdef])[]dnl
                 break;
               }
         }
-      yyfreeGLRStack (&yystack);
     }
 
   return yyresult;
