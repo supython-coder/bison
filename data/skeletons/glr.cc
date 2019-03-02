@@ -1194,6 +1194,54 @@ struct yyGLRStack {
       }
   }
 
+
+#if ]b4_api_PREFIX[DEBUG
+#define YYINDEX(YYX)                                                         \
+    ((YYX) == YY_NULLPTR ? -1 : (yyGLRStackItem*) (YYX) - yyitems)
+
+
+  void
+  yypdumpstack ()
+  {
+    yyGLRStackItem* yyp;
+    size_t yyi;
+    for (yyp = yyitems; yyp < yynextFree; yyp += 1)
+      {
+        YYFPRINTF (stderr, "%3lu. ",
+                   (unsigned long) (yyp - yyitems));
+        if (*(yybool *) yyp)
+          {
+            YYASSERT (yyp->yystate.yyisState);
+            YYASSERT (yyp->yyoption.yyisState);
+            YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
+                       yyp->yystate.yyresolved, yyp->yystate.yylrState,
+                       (unsigned long) yyp->yystate.yyposn,
+                       (long) YYINDEX (yyp->yystate.yypred));
+            if (! yyp->yystate.yyresolved)
+              YYFPRINTF (stderr, ", firstVal: %ld",
+                         (long) YYINDEX (yyp->yystate
+                                               .yysemantics.yyfirstVal));
+          }
+        else
+          {
+            YYASSERT (!yyp->yystate.yyisState);
+            YYASSERT (!yyp->yyoption.yyisState);
+            YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
+                       yyp->yyoption.yyrule - 1,
+                       (long) YYINDEX (yyp->yyoption.yystate),
+                       (long) YYINDEX (yyp->yyoption.yynext));
+          }
+        YYFPRINTF (stderr, "\n");
+      }
+    YYFPRINTF (stderr, "Tops:");
+    for (yyi = 0; yyi < yytops.yysize; yyi += 1)
+      YYFPRINTF (stderr, "%lu: %ld; ", (unsigned long) yyi,
+                 (long) YYINDEX (yytops.yystates[yyi]));
+    YYFPRINTF (stderr, "\n");
+  }
+#undef YYINDEX
+#endif
+
 };
 #undef yystackp
 
@@ -2838,49 +2886,6 @@ yypstack (yyGLRStack* yystackp, size_t yyk)
   yypstates (yystackp->yytops.yystates[yyk]);
 }
 
-#define YYINDEX(YYX)                                                         \
-    ((YYX) == YY_NULLPTR ? -1 : (yyGLRStackItem*) (YYX) - yystackp->yyitems)
-
-
-static void
-yypdumpstack (yyGLRStack* yystackp)
-{
-  yyGLRStackItem* yyp;
-  size_t yyi;
-  for (yyp = yystackp->yyitems; yyp < yystackp->yynextFree; yyp += 1)
-    {
-      YYFPRINTF (stderr, "%3lu. ",
-                 (unsigned long) (yyp - yystackp->yyitems));
-      if (*(yybool *) yyp)
-        {
-          YYASSERT (yyp->yystate.yyisState);
-          YYASSERT (yyp->yyoption.yyisState);
-          YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
-                     yyp->yystate.yyresolved, yyp->yystate.yylrState,
-                     (unsigned long) yyp->yystate.yyposn,
-                     (long) YYINDEX (yyp->yystate.yypred));
-          if (! yyp->yystate.yyresolved)
-            YYFPRINTF (stderr, ", firstVal: %ld",
-                       (long) YYINDEX (yyp->yystate
-                                             .yysemantics.yyfirstVal));
-        }
-      else
-        {
-          YYASSERT (!yyp->yystate.yyisState);
-          YYASSERT (!yyp->yyoption.yyisState);
-          YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
-                     yyp->yyoption.yyrule - 1,
-                     (long) YYINDEX (yyp->yyoption.yystate),
-                     (long) YYINDEX (yyp->yyoption.yynext));
-        }
-      YYFPRINTF (stderr, "\n");
-    }
-  YYFPRINTF (stderr, "Tops:");
-  for (yyi = 0; yyi < yystackp->yytops.yysize; yyi += 1)
-    YYFPRINTF (stderr, "%lu: %ld; ", (unsigned long) yyi,
-               (long) YYINDEX (yystackp->yytops.yystates[yyi]));
-  YYFPRINTF (stderr, "\n");
-}
 #endif
 
 #undef yylval
