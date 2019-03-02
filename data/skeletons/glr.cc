@@ -1242,6 +1242,48 @@ struct yyGLRStack {
 #undef YYINDEX
 #endif
 
+  size_t
+  yysplitStack (size_t yyk)
+  {
+    if (yysplitPoint == YY_NULLPTR)
+      {
+        YYASSERT (yyk == 0);
+        yysplitPoint = yytops.yystates[yyk];
+      }
+    if (yytops.yysize >= yytops.yycapacity)
+      {
+        yyGLRState** yynewStates = YY_NULLPTR;
+        yybool* yynewLookaheadNeeds;
+
+        if (yytops.yycapacity
+            > (YYSIZEMAX / (2 * sizeof yynewStates[0])))
+          yyMemoryExhausted();
+        yytops.yycapacity *= 2;
+
+        yynewStates =
+          (yyGLRState**) YYREALLOC (yytops.yystates,
+                                    (yytops.yycapacity
+                                     * sizeof yynewStates[0]));
+        if (yynewStates == YY_NULLPTR)
+          yyMemoryExhausted();
+        yytops.yystates = yynewStates;
+
+        yynewLookaheadNeeds =
+          (yybool*) YYREALLOC (yytops.yylookaheadNeeds,
+                               (yytops.yycapacity
+                                * sizeof yynewLookaheadNeeds[0]));
+        if (yynewLookaheadNeeds == YY_NULLPTR)
+          yyMemoryExhausted();
+        yytops.yylookaheadNeeds = yynewLookaheadNeeds;
+      }
+    yytops.yystates[yytops.yysize]
+      = yytops.yystates[yyk];
+    yytops.yylookaheadNeeds[yytops.yysize]
+      = yytops.yylookaheadNeeds[yyk];
+    yytops.yysize += 1;
+    return yytops.yysize-1;
+  }
+
 };
 #undef yystackp
 
@@ -1864,48 +1906,6 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
   return yyok;
 }
 
-static size_t
-yysplitStack (yyGLRStack* yystackp, size_t yyk)
-{
-  if (yystackp->yysplitPoint == YY_NULLPTR)
-    {
-      YYASSERT (yyk == 0);
-      yystackp->yysplitPoint = yystackp->yytops.yystates[yyk];
-    }
-  if (yystackp->yytops.yysize >= yystackp->yytops.yycapacity)
-    {
-      yyGLRState** yynewStates = YY_NULLPTR;
-      yybool* yynewLookaheadNeeds;
-
-      if (yystackp->yytops.yycapacity
-          > (YYSIZEMAX / (2 * sizeof yynewStates[0])))
-        yystackp->yyMemoryExhausted();
-      yystackp->yytops.yycapacity *= 2;
-
-      yynewStates =
-        (yyGLRState**) YYREALLOC (yystackp->yytops.yystates,
-                                  (yystackp->yytops.yycapacity
-                                   * sizeof yynewStates[0]));
-      if (yynewStates == YY_NULLPTR)
-        yystackp->yyMemoryExhausted();
-      yystackp->yytops.yystates = yynewStates;
-
-      yynewLookaheadNeeds =
-        (yybool*) YYREALLOC (yystackp->yytops.yylookaheadNeeds,
-                             (yystackp->yytops.yycapacity
-                              * sizeof yynewLookaheadNeeds[0]));
-      if (yynewLookaheadNeeds == YY_NULLPTR)
-        yystackp->yyMemoryExhausted();
-      yystackp->yytops.yylookaheadNeeds = yynewLookaheadNeeds;
-    }
-  yystackp->yytops.yystates[yystackp->yytops.yysize]
-    = yystackp->yytops.yystates[yyk];
-  yystackp->yytops.yylookaheadNeeds[yystackp->yytops.yysize]
-    = yystackp->yytops.yylookaheadNeeds[yyk];
-  yystackp->yytops.yysize += 1;
-  return yystackp->yytops.yysize-1;
-}
-
 /** True iff YYY0 and YYY1 represent identical options at the top level.
  *  That is, they represent the same rule applied to RHS symbols
  *  that produce the same terminal symbols.  */
@@ -2340,7 +2340,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
           while (*yyconflicts != 0)
             {
               YYRESULTTAG yyflag;
-              size_t yynewStack = yysplitStack (yystackp, yyk);
+              size_t yynewStack = yystackp->yysplitStack (yyk);
               YYDPRINTF ((stderr, "Splitting off stack %lu from %lu.\n",
                           (unsigned long) yynewStack,
                           (unsigned long) yyk));
