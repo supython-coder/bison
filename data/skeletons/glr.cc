@@ -1164,6 +1164,36 @@ struct yyGLRStack {
     YY_RESERVE_GLRSTACK (this);
   }
 
+  void
+  yycompressStack ()
+  {
+    yyGLRState* yyp, *yyq, *yyr;
+
+    if (yytops.yysize != 1 || yysplitPoint == YY_NULLPTR)
+      return;
+
+    for (yyp = yytops.yystates[0], yyq = yyp->yypred, yyr = YY_NULLPTR;
+         yyp != yysplitPoint;
+         yyr = yyp, yyp = yyq, yyq = yyp->yypred)
+      yyp->yypred = yyr;
+
+    yyspaceLeft += (size_t) (yynextFree - yyitems);
+    yynextFree = ((yyGLRStackItem*) yysplitPoint) + 1;
+    yyspaceLeft -= (size_t) (yynextFree - yyitems);
+    yysplitPoint = YY_NULLPTR;
+    yylastDeleted = YY_NULLPTR;
+
+    while (yyr != YY_NULLPTR)
+      {
+        yynextFree->yystate = *yyr;
+        yyr = yyr->yypred;
+        yynextFree->yystate.yypred = &yynextFree[-1].yystate;
+        yytops.yystates[0] = &yynextFree->yystate;
+        yynextFree += 1;
+        yyspaceLeft -= 1;
+      }
+  }
+
 };
 #undef yystackp
 
@@ -2213,36 +2243,6 @@ yyresolveStack (yyGLRStack* yystackp]b4_user_formals[)
   return yyok;
 }
 
-static void
-yycompressStack (yyGLRStack* yystackp)
-{
-  yyGLRState* yyp, *yyq, *yyr;
-
-  if (yystackp->yytops.yysize != 1 || yystackp->yysplitPoint == YY_NULLPTR)
-    return;
-
-  for (yyp = yystackp->yytops.yystates[0], yyq = yyp->yypred, yyr = YY_NULLPTR;
-       yyp != yystackp->yysplitPoint;
-       yyr = yyp, yyp = yyq, yyq = yyp->yypred)
-    yyp->yypred = yyr;
-
-  yystackp->yyspaceLeft += (size_t) (yystackp->yynextFree - yystackp->yyitems);
-  yystackp->yynextFree = ((yyGLRStackItem*) yystackp->yysplitPoint) + 1;
-  yystackp->yyspaceLeft -= (size_t) (yystackp->yynextFree - yystackp->yyitems);
-  yystackp->yysplitPoint = YY_NULLPTR;
-  yystackp->yylastDeleted = YY_NULLPTR;
-
-  while (yyr != YY_NULLPTR)
-    {
-      yystackp->yynextFree->yystate = *yyr;
-      yyr = yyr->yypred;
-      yystackp->yynextFree->yystate.yypred = &yystackp->yynextFree[-1].yystate;
-      yystackp->yytops.yystates[0] = &yystackp->yynextFree->yystate;
-      yystackp->yynextFree += 1;
-      yystackp->yyspaceLeft -= 1;
-    }
-}
-
 static YYRESULTTAG
 yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
                    size_t yyposn]b4_pure_formals[)
@@ -2534,7 +2534,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
     for (yyk += 1; yyk < yystackp->yytops.yysize; yyk += 1)
       yymarkStackDeleted (yystackp, yyk);
     yyremoveDeletes (yystackp);
-    yycompressStack (yystackp);
+    yystackp->yycompressStack ();
   }
 
   /* Now pop stack until we find a state that shifts the error token.  */
@@ -2745,7 +2745,7 @@ b4_dollar_popdef])[]dnl
             {
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
               YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));
-              yycompressStack (&yystack);
+              yystack.yycompressStack ();
               break;
             }
         }
