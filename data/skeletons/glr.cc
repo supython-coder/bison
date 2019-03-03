@@ -936,6 +936,7 @@ typedef int yySymbol;
 typedef short yyItemNum;
 
 // Forward declarations.
+struct yyGLRState;
 struct yyGLRStateSet;
 struct yySemanticOption;
 union yyGLRStackItem;
@@ -956,6 +957,34 @@ static void yyfreeStateSet (yyGLRStateSet* yyset);
 static inline const char*
 yytokenName (yySymbol yytoken);
 #endif
+
+]b4_yydestruct_define[
+
+]m4_define([b4_yygetToken_call],
+           [[yygetToken (&yychar][]b4_pure_if([, yystackp])[]b4_user_args[)]])[
+
+static inline yySymbol
+yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[);
+
+static inline yybool
+yyisShiftAction (int yyaction)
+{
+  return (yybool) (0 < yyaction);
+}
+
+static inline yybool
+yyisErrorAction (int yyaction)
+{
+  return (yybool) (yyaction == 0);
+}
+
+static inline void
+yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
+            size_t yyposn,
+            YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[);
+
+static void
+yydestroyGLRState (char const *yymsg, yyGLRState *yys]b4_user_formals[);
 
 struct yyGLRState {
   /** Type tag: always true.  */
@@ -1506,6 +1535,99 @@ struct yyGLRStack {
     yynerrs += 1;
   }
 
+  /* Recover from a syntax error on this, assuming that YYTOKENP,
+     yylval, and yylloc are the syntactic category, semantic value, and location
+     of the lookahead.  */
+  void
+  yyrecoverSyntaxError (]b4_user_formals_no_comma[)
+  {
+    if (yyerrState == 3)
+      /* We just shifted the error token and (perhaps) took some
+         reductions.  Skip tokens until we can proceed.  */
+      while (yytrue)
+        {
+          yySymbol yytoken;
+          int yyj;
+          if (yychar == YYEOF)
+            yyFail (YY_NULLPTR][]b4_lpure_args[);
+          if (yychar != YYEMPTY)
+            {]b4_locations_if([[
+              /* We throw away the lookahead, but the error range
+                 of the shifted error token must take it into account.  */
+              yyGLRState *yys = yytops.yystates[0];
+              yyGLRStackItem yyerror_range[3];
+              yyerror_range[1].yystate.yyloc = yys->yyloc;
+              yyerror_range[2].yystate.yyloc = yylloc;
+              YYLLOC_DEFAULT ((yys->yyloc), yyerror_range, 2);]])[
+              yytoken = YYTRANSLATE (yychar);
+              yydestruct ("Error: discarding",
+                          yytoken, &yylval]b4_locuser_args([&yylloc])[);
+              yychar = YYEMPTY;
+            }
+          yytoken = ]b4_yygetToken_call[;
+          yyj = yypact[yytops.yystates[0]->yylrState];
+          if (yypact_value_is_default (yyj))
+            return;
+          yyj += yytoken;
+          if (yyj < 0 || YYLAST < yyj || yycheck[yyj] != yytoken)
+            {
+              if (yydefact[yytops.yystates[0]->yylrState] != 0)
+                return;
+            }
+          else if (! yytable_value_is_error (yytable[yyj]))
+            return;
+        }
+
+    /* Reduce to one stack.  */
+    {
+      size_t yyk;
+      for (yyk = 0; yyk < yytops.yysize; yyk += 1)
+        if (yytops.yystates[yyk] != YY_NULLPTR)
+          break;
+      if (yyk >= yytops.yysize)
+        yyFail (YY_NULLPTR][]b4_lpure_args[);
+      for (yyk += 1; yyk < yytops.yysize; yyk += 1)
+        yymarkStackDeleted (yyk);
+      yyremoveDeletes ();
+      yycompressStack ();
+    }
+
+    /* Now pop stack until we find a state that shifts the error token.  */
+    yyerrState = 3;
+    while (yytops.yystates[0] != YY_NULLPTR)
+      {
+        yyGLRState *yys = yytops.yystates[0];
+        int yyj = yypact[yys->yylrState];
+        if (! yypact_value_is_default (yyj))
+          {
+            yyj += YYTERROR;
+            if (0 <= yyj && yyj <= YYLAST && yycheck[yyj] == YYTERROR
+                && yyisShiftAction (yytable[yyj]))
+              {
+                /* Shift the error token.  */]b4_locations_if([[
+                /* First adjust its location.*/
+                YYLTYPE yyerrloc;
+                yyerror_range[2].yystate.yyloc = yylloc;
+                YYLLOC_DEFAULT (yyerrloc, (yyerror_range), 2);]])[
+                YY_SYMBOL_PRINT ("Shifting", yystos[yytable[yyj]],
+                                 &yylval, &yyerrloc);
+                yyglrShift (this, 0, yytable[yyj],
+                            yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
+                yys = yytops.yystates[0];
+                break;
+              }
+          }]b4_locations_if([[
+        yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
+        if (yys->yypred != YY_NULLPTR)
+          yydestroyGLRState ("Error: popping", yys]b4_user_args[);
+        yytops.yystates[0] = yys->yypred;
+        yynextFree -= 1;
+        yyspaceLeft += 1;
+      }
+    if (yytops.yystates[0] == YY_NULLPTR)
+      yyFail (YY_NULLPTR][]b4_lpure_args[);
+  }
+
 
 };
 #undef yystackp
@@ -1549,8 +1671,6 @@ yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
     }
 }
 
-]m4_define([b4_yygetToken_call],
-           [[yygetToken (&yychar][]b4_pure_if([, yystackp])[]b4_user_args[)]])[
 /** If yychar is empty, fetch the next token.  */
 static inline yySymbol
 yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[)
@@ -1697,8 +1817,6 @@ yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1)
 
                               /* Bison grammar-table manipulation.  */
 
-]b4_yydestruct_define[
-
 /** Number of symbols composing the right hand side of rule #RULE.  */
 static inline int
 yyrhsLength (yyRuleNum yyrule)
@@ -1802,18 +1920,6 @@ yyLRgotoState (yyStateNum yystate, yySymbol yysym)
     return yytable[yyr];
   else
     return yydefgoto[yysym - YYNTOKENS];
-}
-
-static inline yybool
-yyisShiftAction (int yyaction)
-{
-  return (yybool) (0 < yyaction);
-}
-
-static inline yybool
-yyisErrorAction (int yyaction)
-{
-  return (yybool) (yyaction == 0);
 }
 
                                 /* GLRStacks */
@@ -2539,99 +2645,6 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
   return yyok;
 }
 
-/* Recover from a syntax error on *YYSTACKP, assuming that *YYSTACKP->YYTOKENP,
-   yylval, and yylloc are the syntactic category, semantic value, and location
-   of the lookahead.  */
-static void
-yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
-{
-  if (yystackp->yyerrState == 3)
-    /* We just shifted the error token and (perhaps) took some
-       reductions.  Skip tokens until we can proceed.  */
-    while (yytrue)
-      {
-        yySymbol yytoken;
-        int yyj;
-        if (yychar == YYEOF)
-          yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
-        if (yychar != YYEMPTY)
-          {]b4_locations_if([[
-            /* We throw away the lookahead, but the error range
-               of the shifted error token must take it into account.  */
-            yyGLRState *yys = yystackp->yytops.yystates[0];
-            yyGLRStackItem yyerror_range[3];
-            yyerror_range[1].yystate.yyloc = yys->yyloc;
-            yyerror_range[2].yystate.yyloc = yylloc;
-            YYLLOC_DEFAULT ((yys->yyloc), yyerror_range, 2);]])[
-            yytoken = YYTRANSLATE (yychar);
-            yydestruct ("Error: discarding",
-                        yytoken, &yylval]b4_locuser_args([&yylloc])[);
-            yychar = YYEMPTY;
-          }
-        yytoken = ]b4_yygetToken_call[;
-        yyj = yypact[yystackp->yytops.yystates[0]->yylrState];
-        if (yypact_value_is_default (yyj))
-          return;
-        yyj += yytoken;
-        if (yyj < 0 || YYLAST < yyj || yycheck[yyj] != yytoken)
-          {
-            if (yydefact[yystackp->yytops.yystates[0]->yylrState] != 0)
-              return;
-          }
-        else if (! yytable_value_is_error (yytable[yyj]))
-          return;
-      }
-
-  /* Reduce to one stack.  */
-  {
-    size_t yyk;
-    for (yyk = 0; yyk < yystackp->yytops.yysize; yyk += 1)
-      if (yystackp->yytops.yystates[yyk] != YY_NULLPTR)
-        break;
-    if (yyk >= yystackp->yytops.yysize)
-      yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
-    for (yyk += 1; yyk < yystackp->yytops.yysize; yyk += 1)
-      yystackp->yymarkStackDeleted (yyk);
-    yystackp->yyremoveDeletes ();
-    yystackp->yycompressStack ();
-  }
-
-  /* Now pop stack until we find a state that shifts the error token.  */
-  yystackp->yyerrState = 3;
-  while (yystackp->yytops.yystates[0] != YY_NULLPTR)
-    {
-      yyGLRState *yys = yystackp->yytops.yystates[0];
-      int yyj = yypact[yys->yylrState];
-      if (! yypact_value_is_default (yyj))
-        {
-          yyj += YYTERROR;
-          if (0 <= yyj && yyj <= YYLAST && yycheck[yyj] == YYTERROR
-              && yyisShiftAction (yytable[yyj]))
-            {
-              /* Shift the error token.  */]b4_locations_if([[
-              /* First adjust its location.*/
-              YYLTYPE yyerrloc;
-              yystackp->yyerror_range[2].yystate.yyloc = yylloc;
-              YYLLOC_DEFAULT (yyerrloc, (yystackp->yyerror_range), 2);]])[
-              YY_SYMBOL_PRINT ("Shifting", yystos[yytable[yyj]],
-                               &yylval, &yyerrloc);
-              yyglrShift (yystackp, 0, yytable[yyj],
-                          yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
-              yys = yystackp->yytops.yystates[0];
-              break;
-            }
-        }]b4_locations_if([[
-      yystackp->yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
-      if (yys->yypred != YY_NULLPTR)
-        yydestroyGLRState ("Error: popping", yys]b4_user_args[);
-      yystackp->yytops.yystates[0] = yys->yypred;
-      yystackp->yynextFree -= 1;
-      yystackp->yyspaceLeft += 1;
-    }
-  if (yystackp->yytops.yystates[0] == YY_NULLPTR)
-    yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
-}
-
 #define YYCHK1(YYE)                                                          \
   do {                                                                       \
     switch (YYE) {                                                           \
@@ -2810,7 +2823,7 @@ b4_dollar_popdef])[]dnl
         }
       continue;
     yyuser_error:
-      yyrecoverSyntaxError (&yystack]b4_user_args[);
+      yystack.yyrecoverSyntaxError (]b4_user_args_no_comma[);
       yyposn = yystack.yytops.yystates[0]->yyposn;
     }
 
