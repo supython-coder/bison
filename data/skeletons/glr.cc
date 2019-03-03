@@ -1001,7 +1001,7 @@ union yyGLRStackItem {
 #define yystackp this
 struct yyGLRStack {
 
-  /** Initialize *YYSTACKP to a single empty stack, with total maximum
+  /** Initialize *this to a single empty stack, with total maximum
    *  capacity for all stacks of YYSIZE.  */
   // TODO: migrate to a constructor?
   yybool
@@ -1043,7 +1043,7 @@ struct yyGLRStack {
 # define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
   &((YYTOITEMS) - ((YYFROMITEMS) - (yyGLRStackItem*) (YYX)))->YYTYPE
 
-  /** If *YYSTACKP is expandable, extend it.  WARNING: Pointers into the
+  /** If *this is expandable, extend it.  WARNING: Pointers into the
       stack from outside should be considered invalid after this call.
       We always expand when there are 1 or fewer items left AFTER an
       allocation, so that we can avoid having external pointers exist
@@ -1122,7 +1122,7 @@ struct yyGLRStack {
 
                                 /* GLRStates */
 
-  /** Return a fresh GLRStackItem in YYSTACKP.  The item is an LR state
+  /** Return a fresh GLRStackItem in this.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
    *  YY_RESERVE_GLRSTACK afterwards to make sure there is sufficient
    *  headroom.  */
@@ -1140,7 +1140,7 @@ struct yyGLRStack {
   /** Add a new semantic action that will execute the action for rule
    *  YYRULE on the semantic values in YYRHS to the list of
    *  alternative actions for YYSTATE.  Assumes that YYRHS comes from
-   *  stack #YYK of *YYSTACKP. */
+   *  stack #YYK of *this. */
   void
   yyaddDeferredAction (size_t yyk, yyGLRState* yystate,
                        yyGLRState* yyrhs, yyRuleNum yyrule)
@@ -1283,6 +1283,76 @@ struct yyGLRStack {
     yytops.yysize += 1;
     return yytops.yysize-1;
   }
+
+  /** Assuming that YYS is a GLRState somewhere on *this, update the
+   *  splitpoint of *this, if needed, so that it is at least as deep as
+   *  YYS.  */
+  inline void
+  yyupdateSplit (yyGLRState* yys)
+  {
+    if (yysplitPoint != YY_NULLPTR && yysplitPoint > yys)
+      yysplitPoint = yys;
+  }
+
+  /** Invalidate stack #YYK in *this.  */
+  inline void
+  yymarkStackDeleted (size_t yyk)
+  {
+    if (yytops.yystates[yyk] != YY_NULLPTR)
+      yylastDeleted = yytops.yystates[yyk];
+    yytops.yystates[yyk] = YY_NULLPTR;
+  }
+
+  /** Undelete the last stack in *this that was marked as deleted.  Can
+      only be done once after a deletion, and only when all other stacks have
+      been deleted.  */
+  void
+  yyundeleteLastStack ()
+  {
+    if (yylastDeleted == YY_NULLPTR || yytops.yysize != 0)
+      return;
+    yytops.yystates[0] = yylastDeleted;
+    yytops.yysize = 1;
+    YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
+    yylastDeleted = YY_NULLPTR;
+  }
+
+  inline void
+  yyremoveDeletes ()
+  {
+    size_t yyi, yyj;
+    yyi = yyj = 0;
+    while (yyj < yytops.yysize)
+      {
+        if (yytops.yystates[yyi] == YY_NULLPTR)
+          {
+            if (yyi == yyj)
+              {
+                YYDPRINTF ((stderr, "Removing dead stacks.\n"));
+              }
+            yytops.yysize -= 1;
+          }
+        else
+          {
+            yytops.yystates[yyj] = yytops.yystates[yyi];
+            /* In the current implementation, it's unnecessary to copy
+               yytops.yylookaheadNeeds[yyi] since, after
+               yyremoveDeletes returns, the parser immediately either enters
+               deterministic operation or shifts a token.  However, it doesn't
+               hurt, and the code might evolve to need it.  */
+            yytops.yylookaheadNeeds[yyj] =
+              yytops.yylookaheadNeeds[yyi];
+            if (yyj != yyi)
+              {
+                YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
+                            (unsigned long) yyi, (unsigned long) yyj));
+              }
+            yyj += 1;
+          }
+        yyi += 1;
+      }
+  }
+
 
 };
 #undef yystackp
@@ -1627,75 +1697,6 @@ static void yyfreeStateSet (yyGLRStateSet* yyset)
   YYFREE (yyset->yylookaheadNeeds);
 }
 
-/** Assuming that YYS is a GLRState somewhere on *YYSTACKP, update the
- *  splitpoint of *YYSTACKP, if needed, so that it is at least as deep as
- *  YYS.  */
-static inline void
-yyupdateSplit (yyGLRStack* yystackp, yyGLRState* yys)
-{
-  if (yystackp->yysplitPoint != YY_NULLPTR && yystackp->yysplitPoint > yys)
-    yystackp->yysplitPoint = yys;
-}
-
-/** Invalidate stack #YYK in *YYSTACKP.  */
-static inline void
-yymarkStackDeleted (yyGLRStack* yystackp, size_t yyk)
-{
-  if (yystackp->yytops.yystates[yyk] != YY_NULLPTR)
-    yystackp->yylastDeleted = yystackp->yytops.yystates[yyk];
-  yystackp->yytops.yystates[yyk] = YY_NULLPTR;
-}
-
-/** Undelete the last stack in *YYSTACKP that was marked as deleted.  Can
-    only be done once after a deletion, and only when all other stacks have
-    been deleted.  */
-static void
-yyundeleteLastStack (yyGLRStack* yystackp)
-{
-  if (yystackp->yylastDeleted == YY_NULLPTR || yystackp->yytops.yysize != 0)
-    return;
-  yystackp->yytops.yystates[0] = yystackp->yylastDeleted;
-  yystackp->yytops.yysize = 1;
-  YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
-  yystackp->yylastDeleted = YY_NULLPTR;
-}
-
-static inline void
-yyremoveDeletes (yyGLRStack* yystackp)
-{
-  size_t yyi, yyj;
-  yyi = yyj = 0;
-  while (yyj < yystackp->yytops.yysize)
-    {
-      if (yystackp->yytops.yystates[yyi] == YY_NULLPTR)
-        {
-          if (yyi == yyj)
-            {
-              YYDPRINTF ((stderr, "Removing dead stacks.\n"));
-            }
-          yystackp->yytops.yysize -= 1;
-        }
-      else
-        {
-          yystackp->yytops.yystates[yyj] = yystackp->yytops.yystates[yyi];
-          /* In the current implementation, it's unnecessary to copy
-             yystackp->yytops.yylookaheadNeeds[yyi] since, after
-             yyremoveDeletes returns, the parser immediately either enters
-             deterministic operation or shifts a token.  However, it doesn't
-             hurt, and the code might evolve to need it.  */
-          yystackp->yytops.yylookaheadNeeds[yyj] =
-            yystackp->yytops.yylookaheadNeeds[yyi];
-          if (yyj != yyi)
-            {
-              YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
-                          (unsigned long) yyi, (unsigned long) yyj));
-            }
-          yyj += 1;
-        }
-      yyi += 1;
-    }
-}
-
 /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
  * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
  * value *YYVALP and source location *YYLOCP.  */
@@ -1818,7 +1819,7 @@ yydoAction (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
           yys = yys->yypred;
           YYASSERT (yys);
         }
-      yyupdateSplit (yystackp, yys);
+      yystackp->yyupdateSplit (yys);
       yystackp->yytops.yystates[yyk] = yys;
       YY_REDUCE_PRINT ((yyfalse, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1, yyk, yyrule]b4_user_args[));
       return yyuserAction (yyrule, yynrhs, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
@@ -1875,7 +1876,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
           yys = yys->yypred;
           YYASSERT (yys);
         }
-      yyupdateSplit (yystackp, yys);
+      yystackp->yyupdateSplit (yys);
       yynewLRState = yyLRgotoState (yys->yylrState, yylhsNonterm (yyrule));
       YYDPRINTF ((stderr,
                   "Reduced stack %lu by rule #%d; action deferred.  "
@@ -1891,7 +1892,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
                 if (yyp->yylrState == yynewLRState && yyp->yypred == yys)
                   {
                     yystackp->yyaddDeferredAction (yyk, yyp, yys0, yyrule);
-                    yymarkStackDeleted (yystackp, yyk);
+                    yystackp->yymarkStackDeleted (yyk);
                     YYDPRINTF ((stderr, "Merging stack %lu into stack %lu.\n",
                                 (unsigned long) yyk,
                                 (unsigned long) yyi));
@@ -2311,7 +2312,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
             {
               YYDPRINTF ((stderr, "Stack %lu dies.\n",
                           (unsigned long) yyk));
-              yymarkStackDeleted (yystackp, yyk);
+              yystackp->yymarkStackDeleted (yyk);
               return yyok;
             }
           yyflag = yyglrReduce (yystackp, yyk, yyrule, yyimmediate[yyrule]]b4_user_args[);
@@ -2321,7 +2322,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
                           "Stack %lu dies "
                           "(predicate failure or explicit user error).\n",
                           (unsigned long) yyk));
-              yymarkStackDeleted (yystackp, yyk);
+              yystackp->yymarkStackDeleted (yyk);
               return yyok;
             }
           if (yyflag != yyok)
@@ -2354,7 +2355,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
                 {
                   YYDPRINTF ((stderr, "Stack %lu dies.\n",
                               (unsigned long) yynewStack));
-                  yymarkStackDeleted (yystackp, yynewStack);
+                  yystackp->yymarkStackDeleted (yynewStack);
                 }
               else
                 return yyflag;
@@ -2367,7 +2368,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
             {
               YYDPRINTF ((stderr, "Stack %lu dies.\n",
                           (unsigned long) yyk));
-              yymarkStackDeleted (yystackp, yyk);
+              yystackp->yymarkStackDeleted (yyk);
               break;
             }
           else
@@ -2380,7 +2381,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
                               "Stack %lu dies "
                               "(predicate failure or explicit user error).\n",
                               (unsigned long) yyk));
-                  yymarkStackDeleted (yystackp, yyk);
+                  yystackp->yymarkStackDeleted (yyk);
                   break;
                 }
               else if (yyflag != yyok)
@@ -2580,8 +2581,8 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
     if (yyk >= yystackp->yytops.yysize)
       yystackp->yyFail (YY_NULLPTR][]b4_lpure_args[);
     for (yyk += 1; yyk < yystackp->yytops.yysize; yyk += 1)
-      yymarkStackDeleted (yystackp, yyk);
-    yyremoveDeletes (yystackp);
+      yystackp->yymarkStackDeleted (yyk);
+    yystackp->yyremoveDeletes ();
     yystackp->yycompressStack ();
   }
 
@@ -2738,7 +2739,7 @@ b4_dollar_popdef])[]dnl
                 yyparse, it jumps to an error label via YYCHK1.
 
               - yyok, but yyprocessOneStack has invoked yymarkStackDeleted
-                (&yystack, yys), which sets the top state of yys to NULL.  Thus,
+                (yys), which sets the top state of yys to NULL.  Thus,
                 yyparse's following invocation of yyremoveDeletes will remove
                 the stack.
 
@@ -2752,10 +2753,10 @@ b4_dollar_popdef])[]dnl
 
           for (yys = 0; yys < yystack.yytops.yysize; yys += 1)
             YYCHK1 (yyprocessOneStack (&yystack, yys, yyposn]b4_lpure_args[));
-          yyremoveDeletes (&yystack);
+          yystack.yyremoveDeletes ();
           if (yystack.yytops.yysize == 0)
             {
-              yyundeleteLastStack (&yystack);
+              yystack.yyundeleteLastStack ();
               if (yystack.yytops.yysize == 0)
                 yystack.yyFail (YY_("syntax error")][]b4_lpure_args[);
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
