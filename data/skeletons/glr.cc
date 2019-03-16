@@ -1046,6 +1046,8 @@ union yyGLRStackItem {
 #define yystackp this
 struct yyGLRStack {
 
+  yyGLRStack(]b4_parse_param_decl[) :]b4_parse_param_cons[ {}
+
   /** Initialize *this to a single empty stack, with total maximum
    *  capacity for all stacks of YYSIZE.  */
   // TODO: migrate to a constructor?
@@ -1063,6 +1065,10 @@ struct yyGLRStack {
 
   ~yyGLRStack ()
   {
+    if (yychar != YYEMPTY)
+      yydestruct ("Cleanup: discarding lookahead",
+                  YYTRANSLATE (yychar), &yylval]b4_locuser_args([&yylloc])[);
+    popall();
     YYFREE (yyitems);
     yyfreeStateSet (&yytops);
   }
@@ -1628,6 +1634,34 @@ struct yyGLRStack {
       yyFail (YY_NULLPTR][]b4_lpure_args[);
   }
 
+ private:
+  void popall() {
+    /* If the stack is well-formed, pop the stack until it is empty,
+       destroying its entries as we go.  But free the stack regardless
+       of whether it is well-formed.  */
+    if (yyitems)
+      {
+        yyGLRState** states = yytops.yystates;
+        if (states)
+          for (size_t k = 0; k < yytops.yysize; k += 1)
+            if (states[k])
+              {
+                while (states[k])
+                  {
+                    yyGLRState *state = states[k];]b4_locations_if([[
+                      yyerror_range[1].yystate.yyloc = state->yyloc;]])[
+                    if (state->yypred != YY_NULLPTR)
+                      yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
+                    states[k] = state->yypred;
+                    yynextFree -= 1;
+                    yyspaceLeft += 1;
+                  }
+                  break;
+              }
+      }
+  }
+
+]b4_parse_param_vars[
 
 };
 #undef yystackp
@@ -2668,7 +2702,7 @@ yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
 ]b4_function_define([yyparse], [int], b4_parse_param)[
 {
   int yyresult;
-  yyGLRStack yystack;
+  yyGLRStack yystack(]b4_user_args_no_comma[);
   yyGLRStack* const yystackp = &yystack;
   size_t yyposn;
 
@@ -2845,38 +2879,6 @@ b4_dollar_popdef])[]dnl
   goto yyreturn;
 
  yyreturn:
-  if (yychar != YYEMPTY)
-    yydestruct ("Cleanup: discarding lookahead",
-                YYTRANSLATE (yychar), &yylval]b4_locuser_args([&yylloc])[);
-
-  /* If the stack is well-formed, pop the stack until it is empty,
-     destroying its entries as we go.  But free the stack regardless
-     of whether it is well-formed.  */
-  if (yystack.yyitems)
-    {
-      yyGLRState** yystates = yystack.yytops.yystates;
-      if (yystates)
-        {
-          size_t yysize = yystack.yytops.yysize;
-          size_t yyk;
-          for (yyk = 0; yyk < yysize; yyk += 1)
-            if (yystates[yyk])
-              {
-                while (yystates[yyk])
-                  {
-                    yyGLRState *yys = yystates[yyk];]b4_locations_if([[
-                    yystack.yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
-                    if (yys->yypred != YY_NULLPTR)
-                      yydestroyGLRState ("Cleanup: popping", yys]b4_user_args[);
-                    yystates[yyk] = yys->yypred;
-                    yystack.yynextFree -= 1;
-                    yystack.yyspaceLeft += 1;
-                  }
-                break;
-              }
-        }
-    }
-
   return yyresult;
 }
 
