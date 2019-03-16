@@ -1084,11 +1084,9 @@ struct yyGLRStack {
   YYLTYPE yyloc;]])[
 ])[
   YYJMP_BUF yyexception_buffer;
-  yyGLRStackItem* yyitems = YY_NULLPTR;
   yyGLRStackItem* yynextFree = YY_NULLPTR;
   size_t yyspaceLeft = 0;
   yyGLRState* yysplitPoint = YY_NULLPTR;
-  yyGLRState* yylastDeleted = YY_NULLPTR;
   yyGLRStateSet yytops;
 #if YYSTACKEXPANDABLE
 # define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
@@ -1663,6 +1661,8 @@ struct yyGLRStack {
 
 ]b4_parse_param_vars[
 
+  yyGLRStackItem* yyitems = YY_NULLPTR;
+  yyGLRState* yylastDeleted = YY_NULLPTR;
 };
 #undef yystackp
 
