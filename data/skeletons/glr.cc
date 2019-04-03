@@ -588,9 +588,6 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
 #ifndef YYMALLOC
 # define YYMALLOC malloc
 #endif
-#ifndef YYREALLOC
-# define YYREALLOC realloc
-#endif
 
 #define YYSIZEMAX ((size_t) -1)
 
@@ -1008,61 +1005,58 @@ struct yyGLRState {
 
 class yyGLRStateSet {
  public:
-  yyGLRState** yystates;
+  std::vector<yyGLRState*> yystates;
   /** During nondeterministic operation, yylookaheadNeeds tracks which
    *  stacks have actually needed the current lookahead.  During deterministic
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
    *  duplicate yychar != YYEMPTY.  */
   std::vector<yybool> yylookaheadNeeds;
-  size_t yysize;
 
   /** Initialize YYSET to a singleton set containing an empty stack.  */
-  yyGLRStateSet() :
-    yystates((yyGLRState**) YYMALLOC (INITIAL_NUMBER_STATES * sizeof yystates[0])),
-    yylookaheadNeeds(INITIAL_NUMBER_STATES, yyfalse),
-    yysize(1),
-    yycapacity(INITIAL_NUMBER_STATES)
+  yyGLRStateSet()
   {
-    yystates[0] = YY_NULLPTR;
+    yystates.push_back(YY_NULLPTR);
+    yylookaheadNeeds.push_back(yyfalse);
   }
 
-  ~yyGLRStateSet() {
-    YYFREE (yystates);
-  }
-
+  /** Remove the dead stacks (yystates[i] == YY_NULLPTR) and shift the later
+   * ones.  */
   inline void
   yyremoveDeletes ()
   {
-    size_t yyi, yyj;
-    yyi = yyj = 0;
-    while (yyj < yysize)
+    size_t newsize = yystates.size();
+    /* j is the number of live stacks we have seen.  */
+    for (size_t i = 0, j = 0; i < yystates.size(); ++i)
       {
-        if (yystates[yyi] == YY_NULLPTR)
+        if (yystates[i] == YY_NULLPTR)
           {
-            if (yyi == yyj)
+            if (i == j)
               {
                 YYDPRINTF ((stderr, "Removing dead stacks.\n"));
               }
-            yysize -= 1;
+            newsize -= 1;
           }
         else
           {
-            yystates[yyj] = yystates[yyi];
+            yystates[j] = yystates[i];
             /* In the current implementation, it's unnecessary to copy
-               yylookaheadNeeds[yyi] since, after
+               yylookaheadNeeds[i] since, after
                yyremoveDeletes returns, the parser immediately either enters
                deterministic operation or shifts a token.  However, it doesn't
                hurt, and the code might evolve to need it.  */
-            yylookaheadNeeds[yyj] = yylookaheadNeeds[yyi];
-            if (yyj != yyi)
+            yylookaheadNeeds[j] = yylookaheadNeeds[i];
+            if (j != i)
               {
                 YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
-                            (unsigned long) yyi, (unsigned long) yyj));
+                            (unsigned long) i, (unsigned long) j));
               }
-            yyj += 1;
+            j += 1;
           }
-        yyi += 1;
+        i += 1;
       }
+    yystates.erase(yystates.begin() + newsize, yystates.end());
+    yylookaheadNeeds.erase(yylookaheadNeeds.begin() + newsize,
+                           yylookaheadNeeds.end());
   }
 
 
@@ -1071,30 +1065,10 @@ class yyGLRStateSet {
   size_t
   yysplitStack (size_t yyk)
   {
-    if (yysize >= yycapacity)
-      {
-        yyGLRState** yynewStates = YY_NULLPTR;
-        yybool* yynewLookaheadNeeds;
-
-        yycapacity *= 2;
-
-        yynewStates =
-          (yyGLRState**) YYREALLOC (yystates,
-                                    (yycapacity
-                                     * sizeof yynewStates[0]));
-        yystates = yynewStates;
-
-        yylookaheadNeeds.resize(yycapacity);
-      }
-    yystates[yysize]
-      = yystates[yyk];
-    yylookaheadNeeds[yysize]
-      = yylookaheadNeeds[yyk];
-    yysize += 1;
-    return yysize-1;
+    yystates.push_back(yystates[yyk]);
+    yylookaheadNeeds.push_back(yylookaheadNeeds[yyk]);
+    return yystates.size() - 1;
   }
-
-  size_t yycapacity;
 
   friend class yyGLRStack;
   static const size_t INITIAL_NUMBER_STATES = 16;
@@ -1223,7 +1197,7 @@ struct yyGLRStack {
       yysplitPoint = YYRELOC (yyitems, yynewItems,
                                         yysplitPoint, yystate);
 
-    for (yyn = 0; yyn < yytops.yysize; yyn += 1)
+    for (yyn = 0; yyn < yytops.yystates.size(); yyn += 1)
       if (yytops.yystates[yyn] != YY_NULLPTR)
         yytops.yystates[yyn] =
           YYRELOC (yyitems, yynewItems,
@@ -1297,7 +1271,7 @@ struct yyGLRStack {
   {
     yyGLRState* yyp, *yyq, *yyr;
 
-    if (yytops.yysize != 1 || yysplitPoint == YY_NULLPTR)
+    if (yytops.yystates.size() != 1 || yysplitPoint == YY_NULLPTR)
       return;
 
     for (yyp = yytops.yystates[0], yyq = yyp->yypred, yyr = YY_NULLPTR;
@@ -1362,7 +1336,7 @@ struct yyGLRStack {
         YYFPRINTF (stderr, "\n");
       }
     YYFPRINTF (stderr, "Tops:");
-    for (yyi = 0; yyi < yytops.yysize; yyi += 1)
+    for (yyi = 0; yyi < yytops.yystates.size(); yyi += 1)
       YYFPRINTF (stderr, "%lu: %ld; ", (unsigned long) yyi,
                  (long) YYINDEX (yytops.yystates[yyi]));
     YYFPRINTF (stderr, "\n");
@@ -1405,10 +1379,10 @@ struct yyGLRStack {
   void
   yyundeleteLastStack ()
   {
-    if (yylastDeleted == YY_NULLPTR || yytops.yysize != 0)
+    if (yylastDeleted == YY_NULLPTR || yytops.yystates.size() != 0)
       return;
     yytops.yystates[0] = yylastDeleted;
-    yytops.yysize = 1;
+    yytops.yystates.resize(1);
     YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
     yylastDeleted = YY_NULLPTR;
   }
@@ -1596,12 +1570,12 @@ struct yyGLRStack {
     /* Reduce to one stack.  */
     {
       size_t yyk;
-      for (yyk = 0; yyk < yytops.yysize; yyk += 1)
+      for (yyk = 0; yyk < yytops.yystates.size(); yyk += 1)
         if (yytops.yystates[yyk] != YY_NULLPTR)
           break;
-      if (yyk >= yytops.yysize)
+      if (yyk >= yytops.yystates.size())
         yyFail (YY_NULLPTR][]b4_lpure_args[);
-      for (yyk += 1; yyk < yytops.yysize; yyk += 1)
+      for (yyk += 1; yyk < yytops.yystates.size(); yyk += 1)
         yymarkStackDeleted (yyk);
       yytops.yyremoveDeletes ();
       yycompressStack ();
@@ -1650,23 +1624,22 @@ struct yyGLRStack {
        of whether it is well-formed.  */
     if (yyitems)
       {
-        yyGLRState** states = yytops.yystates;
-        if (states)
-          for (size_t k = 0; k < yytops.yysize; k += 1)
-            if (states[k])
-              {
-                while (states[k])
-                  {
-                    yyGLRState *state = states[k];]b4_locations_if([[
-                      yyerror_range[1].yystate.yyloc = state->yyloc;]])[
-                    if (state->yypred != YY_NULLPTR)
-                      yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
-                    states[k] = state->yypred;
-                    yynextFree -= 1;
-                    yyspaceLeft += 1;
-                  }
-                  break;
-              }
+        std::vector<yyGLRState*>& states = yytops.yystates;
+        for (size_t k = 0; k < yytops.yystates.size(); k += 1)
+          if (states[k])
+            {
+              while (states[k])
+                {
+                  yyGLRState *state = states[k];]b4_locations_if([[
+                    yyerror_range[1].yystate.yyloc = state->yyloc;]])[
+                  if (state->yypred != YY_NULLPTR)
+                    yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
+                  states[k] = state->yypred;
+                  yynextFree -= 1;
+                  yyspaceLeft += 1;
+                }
+                break;
+            }
       }
   }
 
@@ -2154,7 +2127,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
                   "Reduced stack %lu by rule #%d; action deferred.  "
                   "Now in state %d.\n",
                   (unsigned long) yyk, yyrule - 1, yynewLRState));
-      for (yyi = 0; yyi < yystackp->yytops.yysize; yyi += 1)
+      for (yyi = 0; yyi < yystackp->yytops.yystates.size(); yyi += 1)
         if (yyi != yyk && yystackp->yytops.yystates[yyi] != YY_NULLPTR)
           {
             yyGLRState *yysplit = yystackp->yysplitPoint;
@@ -2771,7 +2744,7 @@ b4_dollar_popdef])[]dnl
           yySymbol yytoken_to_shift;
           size_t yys;
 
-          for (yys = 0; yys < yystack.yytops.yysize; yys += 1)
+          for (yys = 0; yys < yystack.yytops.yystates.size(); yys += 1)
             yystackp->yytops.yylookaheadNeeds[yys] = (yybool) (yychar != YYEMPTY);
 
           /* yyprocessOneStack returns one of three things:
@@ -2793,13 +2766,13 @@ b4_dollar_popdef])[]dnl
              reductions on all stacks) helps prevent double destructor calls
              on yylval in the event of memory exhaustion.  */
 
-          for (yys = 0; yys < yystack.yytops.yysize; yys += 1)
+          for (yys = 0; yys < yystack.yytops.yystates.size(); yys += 1)
             YYCHK1 (yyprocessOneStack (&yystack, yys, yyposn]b4_lpure_args[));
           yystack.yytops.yyremoveDeletes ();
-          if (yystack.yytops.yysize == 0)
+          if (yystack.yytops.yystates.size() == 0)
             {
               yystack.yyundeleteLastStack ();
-              if (yystack.yytops.yysize == 0)
+              if (yystack.yytops.yystates.size() == 0)
                 yystack.yyFail (YY_("syntax error")][]b4_lpure_args[);
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
               YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));]b4_locations_if([[
@@ -2816,7 +2789,7 @@ b4_dollar_popdef])[]dnl
           yytoken_to_shift = YYTRANSLATE (yychar);
           yychar = YYEMPTY;
           yyposn += 1;
-          for (yys = 0; yys < yystack.yytops.yysize; yys += 1)
+          for (yys = 0; yys < yystack.yytops.yystates.size(); yys += 1)
             {
               yyStateNum yystate = yystack.yytops.yystates[yys]->yylrState;
               const short* yyconflicts;
@@ -2832,7 +2805,7 @@ b4_dollar_popdef])[]dnl
                           yystack.yytops.yystates[yys]->yylrState));
             }
 
-          if (yystack.yytops.yysize == 1)
+          if (yystack.yytops.yystates.size() == 1)
             {
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
               YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));
