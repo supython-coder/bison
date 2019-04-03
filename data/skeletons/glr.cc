@@ -248,6 +248,7 @@ b4_percent_code_get([[requires]])[
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 ]b4_cxx_portability[
 ]m4_ifdef([b4_location_include],
@@ -1012,13 +1013,13 @@ class yyGLRStateSet {
    *  stacks have actually needed the current lookahead.  During deterministic
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
    *  duplicate yychar != YYEMPTY.  */
-  yybool* yylookaheadNeeds;
+  std::vector<yybool> yylookaheadNeeds;
   size_t yysize, yycapacity;
 
   /** Initialize YYSET to a singleton set containing an empty stack.  */
   yyGLRStateSet() :
     yystates((yyGLRState**) YYMALLOC (INITIAL_NUMBER_STATES * sizeof yystates[0])),
-    yylookaheadNeeds((yybool*) YYMALLOC (INITIAL_NUMBER_STATES * sizeof yylookaheadNeeds[0])),
+    yylookaheadNeeds(INITIAL_NUMBER_STATES, yyfalse),
     yysize(1),
     yycapacity(INITIAL_NUMBER_STATES)
   {
@@ -1027,7 +1028,6 @@ class yyGLRStateSet {
 
   ~yyGLRStateSet() {
     YYFREE (yystates);
-    YYFREE (yylookaheadNeeds);
   }
 
  private:
@@ -1330,13 +1330,7 @@ struct yyGLRStack {
           yyMemoryExhausted();
         yytops.yystates = yynewStates;
 
-        yynewLookaheadNeeds =
-          (yybool*) YYREALLOC (yytops.yylookaheadNeeds,
-                               (yytops.yycapacity
-                                * sizeof yynewLookaheadNeeds[0]));
-        if (yynewLookaheadNeeds == YY_NULLPTR)
-          yyMemoryExhausted();
-        yytops.yylookaheadNeeds = yynewLookaheadNeeds;
+        yytops.yylookaheadNeeds.resize(yytops.yycapacity);
       }
     yytops.yystates[yytops.yysize]
       = yytops.yystates[yyk];
