@@ -942,11 +942,6 @@ struct yySemanticOption;
 union yyGLRStackItem;
 struct yyGLRStack;
 
-static yybool
-yyinitStateSet (yyGLRStateSet* yyset);
-
-static void yyfreeStateSet (yyGLRStateSet* yyset);
-
 #define yypact_value_is_default(Yystate) \
   ]b4_table_value_equals([[pact]], [[Yystate]], [b4_pact_ninf])[
 
@@ -1010,7 +1005,8 @@ struct yyGLRState {
   YYLTYPE yyloc;]])[
 };
 
-struct yyGLRStateSet {
+class yyGLRStateSet {
+ public:
   yyGLRState** yystates;
   /** During nondeterministic operation, yylookaheadNeeds tracks which
    *  stacks have actually needed the current lookahead.  During deterministic
@@ -1018,6 +1014,24 @@ struct yyGLRStateSet {
    *  duplicate yychar != YYEMPTY.  */
   yybool* yylookaheadNeeds;
   size_t yysize, yycapacity;
+
+  /** Initialize YYSET to a singleton set containing an empty stack.  */
+  yyGLRStateSet() :
+    yystates((yyGLRState**) YYMALLOC (INITIAL_NUMBER_STATES * sizeof yystates[0])),
+    yylookaheadNeeds((yybool*) YYMALLOC (INITIAL_NUMBER_STATES * sizeof yylookaheadNeeds[0])),
+    yysize(1),
+    yycapacity(INITIAL_NUMBER_STATES)
+  {
+    yystates[0] = YY_NULLPTR;
+  }
+
+  ~yyGLRStateSet() {
+    YYFREE (yystates);
+    YYFREE (yylookaheadNeeds);
+  }
+
+ private:
+  static const size_t INITIAL_NUMBER_STATES = 16;
 };
 
 struct yySemanticOption {
@@ -1060,7 +1074,7 @@ struct yyGLRStack {
     if (!yyitems)
       return yyfalse;
     yynextFree = yyitems;
-    return yyinitStateSet (&yytops);
+    return yytrue;
   }
 
   ~yyGLRStack ()
@@ -1070,7 +1084,6 @@ struct yyGLRStack {
                   YYTRANSLATE (yychar), &yylval]b4_locuser_args([&yylloc])[);
     popall();
     YYFREE (yyitems);
-    yyfreeStateSet (&yytops);
   }
 
   int yyerrState = 0;
@@ -1957,32 +1970,6 @@ yyLRgotoState (yyStateNum yystate, yySymbol yysym)
 }
 
                                 /* GLRStacks */
-
-/** Initialize YYSET to a singleton set containing an empty stack.  */
-static yybool
-yyinitStateSet (yyGLRStateSet* yyset)
-{
-  yyset->yysize = 1;
-  yyset->yycapacity = 16;
-  yyset->yystates = (yyGLRState**) YYMALLOC (16 * sizeof yyset->yystates[0]);
-  if (! yyset->yystates)
-    return yyfalse;
-  yyset->yystates[0] = YY_NULLPTR;
-  yyset->yylookaheadNeeds =
-    (yybool*) YYMALLOC (16 * sizeof yyset->yylookaheadNeeds[0]);
-  if (! yyset->yylookaheadNeeds)
-    {
-      YYFREE (yyset->yystates);
-      return yyfalse;
-    }
-  return yytrue;
-}
-
-static void yyfreeStateSet (yyGLRStateSet* yyset)
-{
-  YYFREE (yyset->yystates);
-  YYFREE (yyset->yylookaheadNeeds);
-}
 
 /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
  * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
