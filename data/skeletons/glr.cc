@@ -1030,6 +1030,42 @@ class yyGLRStateSet {
     YYFREE (yystates);
   }
 
+  inline void
+  yyremoveDeletes ()
+  {
+    size_t yyi, yyj;
+    yyi = yyj = 0;
+    while (yyj < yysize)
+      {
+        if (yystates[yyi] == YY_NULLPTR)
+          {
+            if (yyi == yyj)
+              {
+                YYDPRINTF ((stderr, "Removing dead stacks.\n"));
+              }
+            yysize -= 1;
+          }
+        else
+          {
+            yystates[yyj] = yystates[yyi];
+            /* In the current implementation, it's unnecessary to copy
+               yylookaheadNeeds[yyi] since, after
+               yyremoveDeletes returns, the parser immediately either enters
+               deterministic operation or shifts a token.  However, it doesn't
+               hurt, and the code might evolve to need it.  */
+            yylookaheadNeeds[yyj] = yylookaheadNeeds[yyi];
+            if (yyj != yyi)
+              {
+                YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
+                            (unsigned long) yyi, (unsigned long) yyj));
+              }
+            yyj += 1;
+          }
+        yyi += 1;
+      }
+  }
+
+
  private:
 
   size_t
@@ -1377,42 +1413,6 @@ struct yyGLRStack {
     yylastDeleted = YY_NULLPTR;
   }
 
-  inline void
-  yyremoveDeletes ()
-  {
-    size_t yyi, yyj;
-    yyi = yyj = 0;
-    while (yyj < yytops.yysize)
-      {
-        if (yytops.yystates[yyi] == YY_NULLPTR)
-          {
-            if (yyi == yyj)
-              {
-                YYDPRINTF ((stderr, "Removing dead stacks.\n"));
-              }
-            yytops.yysize -= 1;
-          }
-        else
-          {
-            yytops.yystates[yyj] = yytops.yystates[yyi];
-            /* In the current implementation, it's unnecessary to copy
-               yytops.yylookaheadNeeds[yyi] since, after
-               yyremoveDeletes returns, the parser immediately either enters
-               deterministic operation or shifts a token.  However, it doesn't
-               hurt, and the code might evolve to need it.  */
-            yytops.yylookaheadNeeds[yyj] =
-              yytops.yylookaheadNeeds[yyi];
-            if (yyj != yyi)
-              {
-                YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
-                            (unsigned long) yyi, (unsigned long) yyj));
-              }
-            yyj += 1;
-          }
-        yyi += 1;
-      }
-  }
-
   void
   yyreportSyntaxError (]b4_user_formals_no_comma[)
   {
@@ -1603,7 +1603,7 @@ struct yyGLRStack {
         yyFail (YY_NULLPTR][]b4_lpure_args[);
       for (yyk += 1; yyk < yytops.yysize; yyk += 1)
         yymarkStackDeleted (yyk);
-      yyremoveDeletes ();
+      yytops.yyremoveDeletes ();
       yycompressStack ();
     }
 
@@ -2795,7 +2795,7 @@ b4_dollar_popdef])[]dnl
 
           for (yys = 0; yys < yystack.yytops.yysize; yys += 1)
             YYCHK1 (yyprocessOneStack (&yystack, yys, yyposn]b4_lpure_args[));
-          yystack.yyremoveDeletes ();
+          yystack.yytops.yyremoveDeletes ();
           if (yystack.yytops.yysize == 0)
             {
               yystack.yyundeleteLastStack ();
