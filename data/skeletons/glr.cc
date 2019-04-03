@@ -1014,7 +1014,7 @@ class yyGLRStateSet {
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
    *  duplicate yychar != YYEMPTY.  */
   std::vector<yybool> yylookaheadNeeds;
-  size_t yysize, yycapacity;
+  size_t yysize;
 
   /** Initialize YYSET to a singleton set containing an empty stack.  */
   yyGLRStateSet() :
@@ -1031,6 +1031,36 @@ class yyGLRStateSet {
   }
 
  private:
+
+  size_t
+  yysplitStack (size_t yyk)
+  {
+    if (yysize >= yycapacity)
+      {
+        yyGLRState** yynewStates = YY_NULLPTR;
+        yybool* yynewLookaheadNeeds;
+
+        yycapacity *= 2;
+
+        yynewStates =
+          (yyGLRState**) YYREALLOC (yystates,
+                                    (yycapacity
+                                     * sizeof yynewStates[0]));
+        yystates = yynewStates;
+
+        yylookaheadNeeds.resize(yycapacity);
+      }
+    yystates[yysize]
+      = yystates[yyk];
+    yylookaheadNeeds[yysize]
+      = yylookaheadNeeds[yyk];
+    yysize += 1;
+    return yysize-1;
+  }
+
+  size_t yycapacity;
+
+  friend class yyGLRStack;
   static const size_t INITIAL_NUMBER_STATES = 16;
 };
 
@@ -1312,34 +1342,8 @@ struct yyGLRStack {
         YYASSERT (yyk == 0);
         yysplitPoint = yytops.yystates[yyk];
       }
-    if (yytops.yysize >= yytops.yycapacity)
-      {
-        yyGLRState** yynewStates = YY_NULLPTR;
-        yybool* yynewLookaheadNeeds;
-
-        if (yytops.yycapacity
-            > (YYSIZEMAX / (2 * sizeof yynewStates[0])))
-          yyMemoryExhausted();
-        yytops.yycapacity *= 2;
-
-        yynewStates =
-          (yyGLRState**) YYREALLOC (yytops.yystates,
-                                    (yytops.yycapacity
-                                     * sizeof yynewStates[0]));
-        if (yynewStates == YY_NULLPTR)
-          yyMemoryExhausted();
-        yytops.yystates = yynewStates;
-
-        yytops.yylookaheadNeeds.resize(yytops.yycapacity);
-      }
-    yytops.yystates[yytops.yysize]
-      = yytops.yystates[yyk];
-    yytops.yylookaheadNeeds[yytops.yysize]
-      = yytops.yylookaheadNeeds[yyk];
-    yytops.yysize += 1;
-    return yytops.yysize-1;
+    return yytops.yysplitStack(yyk);
   }
-
   /** Assuming that YYS is a GLRState somewhere on *this, update the
    *  splitpoint of *this, if needed, so that it is at least as deep as
    *  YYS.  */
