@@ -976,6 +976,29 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
             size_t yyposn,
             YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[);
 
+static inline YYRESULTTAG
+yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
+             yybool yyforceEval]b4_user_formals[);
+
+static inline int
+yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts);
+
+/** True iff LR state YYSTATE has only a default reduction (regardless
+ *  of token).  */
+static inline yybool
+yyisDefaultedState (yyStateNum yystate)
+{
+  return (yybool) yypact_value_is_default (yypact[yystate]);
+}
+
+/** The default reduction for YYSTATE, assuming it has one.  */
+static inline yyRuleNum
+yydefaultAction (yyStateNum yystate)
+{
+  return yydefact[yystate];
+}
+
+
 static void
 yydestroyGLRState (char const *yymsg, yyGLRState *yys]b4_user_formals[);
 
@@ -1617,6 +1640,102 @@ struct yyGLRStack {
       yyFail (YY_NULLPTR][]b4_lpure_args[);
   }
 
+  YYRESULTTAG
+  yyprocessOneStack (size_t yyk,
+                     size_t yyposn]b4_pure_formals[)
+  {
+    while (yytops.yystates[yyk] != YY_NULLPTR)
+      {
+        yyStateNum yystate = yytops.yystates[yyk]->yylrState;
+        YYDPRINTF ((stderr, "Stack %lu Entering state %d\n",
+                    (unsigned long) yyk, yystate));
+
+        YYASSERT (yystate != YYFINAL);
+
+        if (yyisDefaultedState (yystate))
+          {
+            yyRuleNum yyrule = yydefaultAction (yystate);
+            if (yyrule == 0)
+              {
+                YYDPRINTF ((stderr, "Stack %lu dies.\n",
+                            (unsigned long) yyk));
+                yymarkStackDeleted (yyk);
+                return yyok;
+              }
+            YYRESULTTAG yyflag = yyglrReduce (this, yyk, yyrule,
+                                              yyimmediate[yyrule]]b4_user_args[);
+            if (yyflag == yyerr)
+              {
+                YYDPRINTF ((stderr,
+                            "Stack %lu dies "
+                            "(predicate failure or explicit user error).\n",
+                            (unsigned long) yyk));
+                yymarkStackDeleted (yyk);
+                return yyok;
+              }
+            if (yyflag != yyok)
+              return yyflag;
+          }
+        else
+          {
+            yytops.yylookaheadNeeds[yyk] = yytrue;
+            yySymbol yytoken = ]b4_yygetToken_call[;
+            const short* yyconflicts;
+            int yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
+
+            for (; *yyconflicts != 0; ++yyconflicts)
+              {
+                size_t yynewStack = yysplitStack (yyk);
+                YYDPRINTF ((stderr, "Splitting off stack %lu from %lu.\n",
+                            (unsigned long) yynewStack,
+                            (unsigned long) yyk));
+                YYRESULTTAG yyflag =
+                  yyglrReduce (this, yynewStack, *yyconflicts,
+                               yyimmediate[*yyconflicts]]b4_user_args[);
+                if (yyflag == yyok)
+                  YYCHK (yyprocessOneStack (yynewStack,
+                                            yyposn]b4_pure_args[));
+                else if (yyflag == yyerr)
+                  {
+                    YYDPRINTF ((stderr, "Stack %lu dies.\n",
+                                (unsigned long) yynewStack));
+                    yymarkStackDeleted (yynewStack);
+                  }
+                else
+                  return yyflag;
+              }
+
+            if (yyisShiftAction (yyaction))
+              break;
+            else if (yyisErrorAction (yyaction))
+              {
+                YYDPRINTF ((stderr, "Stack %lu dies.\n",
+                            (unsigned long) yyk));
+                yymarkStackDeleted (yyk);
+                break;
+              }
+            else
+              {
+                YYRESULTTAG yyflag = yyglrReduce (this, yyk, -yyaction,
+                                                  yyimmediate[-yyaction]]b4_user_args[);
+                if (yyflag == yyerr)
+                  {
+                    YYDPRINTF ((stderr,
+                                "Stack %lu dies "
+                                "(predicate failure or explicit user error).\n",
+                                (unsigned long) yyk));
+                    yymarkStackDeleted (yyk);
+                    break;
+                  }
+                else if (yyflag != yyok)
+                  return yyflag;
+              }
+          }
+      }
+    return yyok;
+  }
+
+
  private:
   void popall() {
     /* If the stack is well-formed, pop the stack until it is empty,
@@ -1879,21 +1998,6 @@ static inline yySymbol
 yylhsNonterm (yyRuleNum yyrule)
 {
   return yyr1[yyrule];
-}
-
-/** True iff LR state YYSTATE has only a default reduction (regardless
- *  of token).  */
-static inline yybool
-yyisDefaultedState (yyStateNum yystate)
-{
-  return (yybool) yypact_value_is_default (yypact[yystate]);
-}
-
-/** The default reduction for YYSTATE, assuming it has one.  */
-static inline yyRuleNum
-yydefaultAction (yyStateNum yystate)
-{
-  return yydefact[yystate];
 }
 
 /** The action to take in YYSTATE on seeing YYTOKEN.
@@ -2537,106 +2641,6 @@ yyresolveStack (yyGLRStack* yystackp]b4_user_formals[)
   return yyok;
 }
 
-static YYRESULTTAG
-yyprocessOneStack (yyGLRStack* yystackp, size_t yyk,
-                   size_t yyposn]b4_pure_formals[)
-{
-  while (yystackp->yytops.yystates[yyk] != YY_NULLPTR)
-    {
-      yyStateNum yystate = yystackp->yytops.yystates[yyk]->yylrState;
-      YYDPRINTF ((stderr, "Stack %lu Entering state %d\n",
-                  (unsigned long) yyk, yystate));
-
-      YYASSERT (yystate != YYFINAL);
-
-      if (yyisDefaultedState (yystate))
-        {
-          YYRESULTTAG yyflag;
-          yyRuleNum yyrule = yydefaultAction (yystate);
-          if (yyrule == 0)
-            {
-              YYDPRINTF ((stderr, "Stack %lu dies.\n",
-                          (unsigned long) yyk));
-              yystackp->yymarkStackDeleted (yyk);
-              return yyok;
-            }
-          yyflag = yyglrReduce (yystackp, yyk, yyrule, yyimmediate[yyrule]]b4_user_args[);
-          if (yyflag == yyerr)
-            {
-              YYDPRINTF ((stderr,
-                          "Stack %lu dies "
-                          "(predicate failure or explicit user error).\n",
-                          (unsigned long) yyk));
-              yystackp->yymarkStackDeleted (yyk);
-              return yyok;
-            }
-          if (yyflag != yyok)
-            return yyflag;
-        }
-      else
-        {
-          yySymbol yytoken;
-          int yyaction;
-          const short* yyconflicts;
-
-          yystackp->yytops.yylookaheadNeeds[yyk] = yytrue;
-          yytoken = ]b4_yygetToken_call[;
-          yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
-
-          while (*yyconflicts != 0)
-            {
-              YYRESULTTAG yyflag;
-              size_t yynewStack = yystackp->yysplitStack (yyk);
-              YYDPRINTF ((stderr, "Splitting off stack %lu from %lu.\n",
-                          (unsigned long) yynewStack,
-                          (unsigned long) yyk));
-              yyflag = yyglrReduce (yystackp, yynewStack,
-                                    *yyconflicts,
-                                    yyimmediate[*yyconflicts]]b4_user_args[);
-              if (yyflag == yyok)
-                YYCHK (yyprocessOneStack (yystackp, yynewStack,
-                                          yyposn]b4_pure_args[));
-              else if (yyflag == yyerr)
-                {
-                  YYDPRINTF ((stderr, "Stack %lu dies.\n",
-                              (unsigned long) yynewStack));
-                  yystackp->yymarkStackDeleted (yynewStack);
-                }
-              else
-                return yyflag;
-              yyconflicts += 1;
-            }
-
-          if (yyisShiftAction (yyaction))
-            break;
-          else if (yyisErrorAction (yyaction))
-            {
-              YYDPRINTF ((stderr, "Stack %lu dies.\n",
-                          (unsigned long) yyk));
-              yystackp->yymarkStackDeleted (yyk);
-              break;
-            }
-          else
-            {
-              YYRESULTTAG yyflag = yyglrReduce (yystackp, yyk, -yyaction,
-                                                yyimmediate[-yyaction]]b4_user_args[);
-              if (yyflag == yyerr)
-                {
-                  YYDPRINTF ((stderr,
-                              "Stack %lu dies "
-                              "(predicate failure or explicit user error).\n",
-                              (unsigned long) yyk));
-                  yystackp->yymarkStackDeleted (yyk);
-                  break;
-                }
-              else if (yyflag != yyok)
-                return yyflag;
-            }
-        }
-    }
-  return yyok;
-}
-
 #define YYCHK1(YYE)                                                          \
   do {                                                                       \
     switch (YYE) {                                                           \
@@ -2767,7 +2771,7 @@ b4_dollar_popdef])[]dnl
              on yylval in the event of memory exhaustion.  */
 
           for (yys = 0; yys < yystack.yytops.yystates.size(); yys += 1)
-            YYCHK1 (yyprocessOneStack (&yystack, yys, yyposn]b4_lpure_args[));
+            YYCHK1 (yystack.yyprocessOneStack (yys, yyposn]b4_lpure_args[));
           yystack.yytops.yyremoveDeletes ();
           if (yystack.yytops.yystates.size() == 0)
             {
