@@ -1037,9 +1037,32 @@ class yyGLRStateSet {
 
   /** Initialize YYSET to a singleton set containing an empty stack.  */
   yyGLRStateSet()
+    : yylastDeleted(YY_NULLPTR)
   {
     yystates.push_back(YY_NULLPTR);
     yylookaheadNeeds.push_back(yyfalse);
+  }
+
+  /** Invalidate stack #YYK in *this.  */
+  inline void
+  yymarkStackDeleted (size_t yyk)
+  {
+    if (yystates[yyk] != YY_NULLPTR)
+      yylastDeleted = yystates[yyk];
+    yystates[yyk] = YY_NULLPTR;
+  }
+
+  /** Undelete the last stack in *this that was marked as deleted.  Can
+      only be done once after a deletion, and only when all other stacks have
+      been deleted.  */
+  void
+  yyundeleteLastStack ()
+  {
+    if (yylastDeleted == YY_NULLPTR || yystates.size() != 0)
+      return;
+    yystates.push_back(yylastDeleted);
+    YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
+    yylastDeleted = YY_NULLPTR;
   }
 
   /** Remove the dead stacks (yystates[i] == YY_NULLPTR) and shift the later
@@ -1092,6 +1115,9 @@ class yyGLRStateSet {
     yylookaheadNeeds.push_back(yylookaheadNeeds[yyk]);
     return yystates.size() - 1;
   }
+
+  /** The last stack we invalidated.  */
+  yyGLRState* yylastDeleted;
 
   friend class yyGLRStack;
   static const size_t INITIAL_NUMBER_STATES = 16;
@@ -1306,7 +1332,7 @@ struct yyGLRStack {
     yynextFree = ((yyGLRStackItem*) yysplitPoint) + 1;
     yyspaceLeft -= (size_t) (yynextFree - yyitems);
     yysplitPoint = YY_NULLPTR;
-    yylastDeleted = YY_NULLPTR;
+    yytops.yylastDeleted = YY_NULLPTR;
 
     while (yyr != YY_NULLPTR)
       {
@@ -1385,29 +1411,6 @@ struct yyGLRStack {
   {
     if (yysplitPoint != YY_NULLPTR && yysplitPoint > yys)
       yysplitPoint = yys;
-  }
-
-  /** Invalidate stack #YYK in *this.  */
-  inline void
-  yymarkStackDeleted (size_t yyk)
-  {
-    if (yytops.yystates[yyk] != YY_NULLPTR)
-      yylastDeleted = yytops.yystates[yyk];
-    yytops.yystates[yyk] = YY_NULLPTR;
-  }
-
-  /** Undelete the last stack in *this that was marked as deleted.  Can
-      only be done once after a deletion, and only when all other stacks have
-      been deleted.  */
-  void
-  yyundeleteLastStack ()
-  {
-    if (yylastDeleted == YY_NULLPTR || yytops.yystates.size() != 0)
-      return;
-    yytops.yystates[0] = yylastDeleted;
-    yytops.yystates.resize(1);
-    YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
-    yylastDeleted = YY_NULLPTR;
   }
 
   void
@@ -1599,7 +1602,7 @@ struct yyGLRStack {
       if (yyk >= yytops.yystates.size())
         yyFail (YY_NULLPTR][]b4_lpure_args[);
       for (yyk += 1; yyk < yytops.yystates.size(); yyk += 1)
-        yymarkStackDeleted (yyk);
+        yytops.yymarkStackDeleted (yyk);
       yytops.yyremoveDeletes ();
       yycompressStack ();
     }
@@ -1659,7 +1662,7 @@ struct yyGLRStack {
               {
                 YYDPRINTF ((stderr, "Stack %lu dies.\n",
                             (unsigned long) yyk));
-                yymarkStackDeleted (yyk);
+                yytops.yymarkStackDeleted (yyk);
                 return yyok;
               }
             YYRESULTTAG yyflag = yyglrReduce (this, yyk, yyrule,
@@ -1670,7 +1673,7 @@ struct yyGLRStack {
                             "Stack %lu dies "
                             "(predicate failure or explicit user error).\n",
                             (unsigned long) yyk));
-                yymarkStackDeleted (yyk);
+                yytops.yymarkStackDeleted (yyk);
                 return yyok;
               }
             if (yyflag != yyok)
@@ -1699,7 +1702,7 @@ struct yyGLRStack {
                   {
                     YYDPRINTF ((stderr, "Stack %lu dies.\n",
                                 (unsigned long) yynewStack));
-                    yymarkStackDeleted (yynewStack);
+                    yytops.yymarkStackDeleted (yynewStack);
                   }
                 else
                   return yyflag;
@@ -1711,7 +1714,7 @@ struct yyGLRStack {
               {
                 YYDPRINTF ((stderr, "Stack %lu dies.\n",
                             (unsigned long) yyk));
-                yymarkStackDeleted (yyk);
+                yytops.yymarkStackDeleted (yyk);
                 break;
               }
             else
@@ -1724,7 +1727,7 @@ struct yyGLRStack {
                                 "Stack %lu dies "
                                 "(predicate failure or explicit user error).\n",
                                 (unsigned long) yyk));
-                    yymarkStackDeleted (yyk);
+                    yytops.yymarkStackDeleted (yyk);
                     break;
                   }
                 else if (yyflag != yyok)
@@ -1765,7 +1768,6 @@ struct yyGLRStack {
 ]b4_parse_param_vars[
 
   yyGLRStackItem* yyitems = YY_NULLPTR;
-  yyGLRState* yylastDeleted = YY_NULLPTR;
 };
 #undef yystackp
 
@@ -2241,7 +2243,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
                 if (yyp->yylrState == yynewLRState && yyp->yypred == yys)
                   {
                     yystackp->yyaddDeferredAction (yyk, yyp, yys0, yyrule);
-                    yystackp->yymarkStackDeleted (yyk);
+                    yystackp->yytops.yymarkStackDeleted (yyk);
                     YYDPRINTF ((stderr, "Merging stack %lu into stack %lu.\n",
                                 (unsigned long) yyk,
                                 (unsigned long) yyi));
@@ -2775,7 +2777,7 @@ b4_dollar_popdef])[]dnl
           yystack.yytops.yyremoveDeletes ();
           if (yystack.yytops.yystates.size() == 0)
             {
-              yystack.yyundeleteLastStack ();
+              yystack.yytops.yyundeleteLastStack ();
               if (yystack.yytops.yystates.size() == 0)
                 yystack.yyFail (YY_("syntax error")][]b4_lpure_args[);
               YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
