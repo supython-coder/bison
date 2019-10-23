@@ -1,3 +1,4 @@
+/build-aux
 *.eps
 *.log
 *.o
@@ -41,3 +42,4 @@
 /patches
 /releases
 /stamp-h*
+.bootstrap*
