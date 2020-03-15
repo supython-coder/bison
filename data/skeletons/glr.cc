@@ -1223,10 +1223,6 @@ yylhsNonterm (yyRuleNum yyrule)
 static inline yyStateNum
 yyLRgotoState (yyStateNum yystate, yySymbol yysym);
 
-static inline void
-yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
-                 size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule);
-
 #define yystackp this
 struct yyGLRStack {
 
@@ -2029,9 +2025,30 @@ struct yyGLRStack {
                 }
             }
         yytops.yystates[yyk] = yys;
-        yyglrShiftDefer (this, yyk, yynewLRState, yyposn, yys0, yyrule);
+        yyglrShiftDefer (yyk, yynewLRState, yyposn, yys0, yyrule);
       }
     return yyok;
+  }
+
+  /** Shift stack #YYK of *YYSTACKP, to a new state corresponding to LR
+   *  state YYLRSTATE, at input position YYPOSN, with the (unresolved)
+   *  semantic value of YYRHS under the action for YYRULE.  */
+  inline void
+  yyglrShiftDefer (size_t yyk, yyStateNum yylrState,
+                   size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule)
+  {
+    yyGLRState* yynewState = &yynewGLRStackItem (yytrue)->yystate;
+    YYASSERT (yynewState->yyisState);
+
+    yynewState->yylrState = yylrState;
+    yynewState->yyposn = yyposn;
+    yynewState->yyresolved = yyfalse;
+    yynewState->yypred = yytops.yystates[yyk];
+    yynewState->yysemantics.yyfirstVal = YY_NULLPTR;
+    yytops.yystates[yyk] = yynewState;
+
+    /* Invokes YY_RESERVE_GLRSTACK.  */
+    yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
   }
 
  private:
@@ -2468,27 +2485,6 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
   yystackp->yytops.yystates[yyk] = yynewState;
 
   YY_RESERVE_GLRSTACK (yystackp);
-}
-
-/** Shift stack #YYK of *YYSTACKP, to a new state corresponding to LR
- *  state YYLRSTATE, at input position YYPOSN, with the (unresolved)
- *  semantic value of YYRHS under the action for YYRULE.  */
-static inline void
-yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
-                 size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule)
-{
-  yyGLRState* yynewState = &yystackp->yynewGLRStackItem (yytrue)->yystate;
-  YYASSERT (yynewState->yyisState);
-
-  yynewState->yylrState = yylrState;
-  yynewState->yyposn = yyposn;
-  yynewState->yyresolved = yyfalse;
-  yynewState->yypred = yystackp->yytops.yystates[yyk];
-  yynewState->yysemantics.yyfirstVal = YY_NULLPTR;
-  yystackp->yytops.yystates[yyk] = yynewState;
-
-  /* Invokes YY_RESERVE_GLRSTACK.  */
-  yystackp->yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
 }
 
 
