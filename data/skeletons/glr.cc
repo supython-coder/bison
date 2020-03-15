@@ -1171,6 +1171,52 @@ yyreportAmbiguity (yySemanticOption* yyx0,
 static void
 yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1);
 
+static void yyfillin (yyGLRStackItem *, int, int) YY_ATTRIBUTE_UNUSED;
+
+#undef YYFILL
+#define YYFILL(N) yyfill (yyvsp, &yylow, (N), yynormal)
+
+#if !]b4_api_PREFIX[DEBUG
+# define YY_REDUCE_PRINT(Args)
+#else
+# define YY_REDUCE_PRINT(Args)          \
+  do {                                  \
+    if (yydebug)                        \
+      yy_reduce_print Args;             \
+  } while (0)
+
+/*----------------------------------------------------------------------.
+| Report that stack #YYK of *YYSTACKP is going to be reduced by YYRULE. |
+`----------------------------------------------------------------------*/
+
+static inline void
+yy_reduce_print (yybool yynormal, yyGLRStackItem* yyvsp, size_t yyk,
+                 yyRuleNum yyrule]b4_user_formals[)
+{
+  int yynrhs = yyrhsLength (yyrule);]b4_locations_if([
+  int yylow = 1;])[
+  int yyi;
+  YYFPRINTF (stderr, "Reducing stack %lu by rule %d (line %lu):\n",
+             (unsigned long) yyk, yyrule - 1,
+             (unsigned long) yyrline[yyrule]);
+  if (! yynormal)
+    yyfillin (yyvsp, 1, -yynrhs);
+  /* The symbols being reduced.  */
+  for (yyi = 0; yyi < yynrhs; yyi++)
+    {
+      YYFPRINTF (stderr, "   $%d = ", yyi + 1);
+      yy_symbol_print (stderr,
+                       yystos[yyvsp[yyi - yynrhs + 1].yystate.yylrState],
+                       &yyvsp[yyi - yynrhs + 1].yystate.yysemantics.yysval]b4_locations_if([,
+                       &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
+                       b4_user_args[);
+      if (!yyvsp[yyi - yynrhs + 1].yystate.yyresolved)
+        YYFPRINTF (stderr, " (unresolved)");
+      YYFPRINTF (stderr, "\n");
+    }
+}
+#endif
+
 #define yystackp this
 struct yyGLRStack {
 
@@ -1788,8 +1834,6 @@ struct yyGLRStack {
   # define YYRECOVERING() (yyerrState != 0)
   # undef yyclearin
   # define yyclearin (yychar = YYEMPTY)
-  # undef YYFILL
-  # define YYFILL(N) yyfill (yyvsp, &yylow, (N), yynormal)
   # undef YYBACKUP
   # define YYBACKUP(Token, Value)                                              \
     return yyerror (]b4_yyerror_args[YY_("syntax error: cannot back up")),     \
@@ -1853,6 +1897,52 @@ struct yyGLRStack {
     return yyok;
   }
 
+  /** Pop the symbols consumed by reduction #YYRULE from the top of stack
+   *  #YYK of *YYSTACKP, and perform the appropriate semantic action on their
+   *  semantic values.  Assumes that all ambiguities in semantic values
+   *  have been previously resolved.  Set *YYVALP to the resulting value,
+   *  and *YYLOCP to the computed location (if any).  Return value is as
+   *  for userAction.  */
+  inline YYRESULTTAG
+  yydoAction (size_t yyk, yyRuleNum yyrule,
+              YYSTYPE* yyvalp]b4_locuser_formals[)
+  {
+    int yynrhs = yyrhsLength (yyrule);
+
+    if (yysplitPoint == YY_NULLPTR)
+      {
+        /* Standard special case: single stack.  */
+        yyGLRStackItem* yyrhs = (yyGLRStackItem*) yytops.yystates[yyk];
+        YYASSERT (yyk == 0);
+        yynextFree -= yynrhs;
+        yyspaceLeft += (size_t) yynrhs;
+        yytops.yystates[0] = & yynextFree[-1].yystate;
+        YY_REDUCE_PRINT ((yytrue, yyrhs, yyk, yyrule]b4_user_args[));
+        return yyuserAction (yyrule, yynrhs, yyrhs,
+                             yyvalp]b4_locuser_args[);
+      }
+    else
+      {
+        int yyi;
+        yyGLRState* yys;
+        yyGLRStackItem yyrhsVals[YYMAXRHS + YYMAXLEFT + 1];
+        yys = yyrhsVals[YYMAXRHS + YYMAXLEFT].yystate.yypred
+          = yytops.yystates[yyk];]b4_locations_if([[
+        if (yynrhs == 0)
+          /* Set default location.  */
+          yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = yys->yyloc;]])[
+        for (yyi = 0; yyi < yynrhs; yyi += 1)
+          {
+            yys = yys->yypred;
+            YYASSERT (yys);
+          }
+        yyupdateSplit (yys);
+        yytops.yystates[yyk] = yys;
+        YY_REDUCE_PRINT ((yyfalse, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1, yyk, yyrule]b4_user_args[));
+        return yyuserAction (yyrule, yynrhs, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
+                             yyvalp]b4_locuser_args[);
+      }
+  }
 
  private:
   void popall() {
@@ -2094,7 +2184,6 @@ yytokenName (yySymbol yytoken)
 /** Fill in YYVSP[YYLOW1 .. YYLOW0-1] from the chain of states starting
  *  at YYVSP[YYLOW0].yystate.yypred.  Leaves YYVSP[YYLOW1].yystate.yypred
  *  containing the pointer to the next state in the chain.  */
-static void yyfillin (yyGLRStackItem *, int, int) YY_ATTRIBUTE_UNUSED;
 static void
 yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
 {
@@ -2319,93 +2408,7 @@ yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
   yystackp->yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
 }
 
-#if !]b4_api_PREFIX[DEBUG
-# define YY_REDUCE_PRINT(Args)
-#else
-# define YY_REDUCE_PRINT(Args)          \
-  do {                                  \
-    if (yydebug)                        \
-      yy_reduce_print Args;             \
-  } while (0)
 
-/*----------------------------------------------------------------------.
-| Report that stack #YYK of *YYSTACKP is going to be reduced by YYRULE. |
-`----------------------------------------------------------------------*/
-
-static inline void
-yy_reduce_print (yybool yynormal, yyGLRStackItem* yyvsp, size_t yyk,
-                 yyRuleNum yyrule]b4_user_formals[)
-{
-  int yynrhs = yyrhsLength (yyrule);]b4_locations_if([
-  int yylow = 1;])[
-  int yyi;
-  YYFPRINTF (stderr, "Reducing stack %lu by rule %d (line %lu):\n",
-             (unsigned long) yyk, yyrule - 1,
-             (unsigned long) yyrline[yyrule]);
-  if (! yynormal)
-    yyfillin (yyvsp, 1, -yynrhs);
-  /* The symbols being reduced.  */
-  for (yyi = 0; yyi < yynrhs; yyi++)
-    {
-      YYFPRINTF (stderr, "   $%d = ", yyi + 1);
-      yy_symbol_print (stderr,
-                       yystos[yyvsp[yyi - yynrhs + 1].yystate.yylrState],
-                       &yyvsp[yyi - yynrhs + 1].yystate.yysemantics.yysval]b4_locations_if([,
-                       &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
-                       b4_user_args[);
-      if (!yyvsp[yyi - yynrhs + 1].yystate.yyresolved)
-        YYFPRINTF (stderr, " (unresolved)");
-      YYFPRINTF (stderr, "\n");
-    }
-}
-#endif
-
-/** Pop the symbols consumed by reduction #YYRULE from the top of stack
- *  #YYK of *YYSTACKP, and perform the appropriate semantic action on their
- *  semantic values.  Assumes that all ambiguities in semantic values
- *  have been previously resolved.  Set *YYVALP to the resulting value,
- *  and *YYLOCP to the computed location (if any).  Return value is as
- *  for userAction.  */
-static inline YYRESULTTAG
-yydoAction (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
-            YYSTYPE* yyvalp]b4_locuser_formals[)
-{
-  int yynrhs = yyrhsLength (yyrule);
-
-  if (yystackp->yysplitPoint == YY_NULLPTR)
-    {
-      /* Standard special case: single stack.  */
-      yyGLRStackItem* yyrhs = (yyGLRStackItem*) yystackp->yytops.yystates[yyk];
-      YYASSERT (yyk == 0);
-      yystackp->yynextFree -= yynrhs;
-      yystackp->yyspaceLeft += (size_t) yynrhs;
-      yystackp->yytops.yystates[0] = & yystackp->yynextFree[-1].yystate;
-      YY_REDUCE_PRINT ((yytrue, yyrhs, yyk, yyrule]b4_user_args[));
-      return yystackp->yyuserAction (yyrule, yynrhs, yyrhs,
-                                     yyvalp]b4_locuser_args[);
-    }
-  else
-    {
-      int yyi;
-      yyGLRState* yys;
-      yyGLRStackItem yyrhsVals[YYMAXRHS + YYMAXLEFT + 1];
-      yys = yyrhsVals[YYMAXRHS + YYMAXLEFT].yystate.yypred
-        = yystackp->yytops.yystates[yyk];]b4_locations_if([[
-      if (yynrhs == 0)
-        /* Set default location.  */
-        yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = yys->yyloc;]])[
-      for (yyi = 0; yyi < yynrhs; yyi += 1)
-        {
-          yys = yys->yypred;
-          YYASSERT (yys);
-        }
-      yystackp->yyupdateSplit (yys);
-      yystackp->yytops.yystates[yyk] = yys;
-      YY_REDUCE_PRINT ((yyfalse, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1, yyk, yyrule]b4_user_args[));
-      return yystackp->yyuserAction (yyrule, yynrhs, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
-                                     yyvalp]b4_locuser_args[);
-    }
-}
 
 /** Pop items off stack #YYK of *YYSTACKP according to grammar rule YYRULE,
  *  and push back on the resulting nonterminal symbol.  Perform the
@@ -2429,7 +2432,7 @@ yyglrReduce (yyGLRStack* yystackp, size_t yyk, yyRuleNum yyrule,
       YYSTYPE yysval;]b4_locations_if([[
       YYLTYPE yyloc;]])[
 
-      YYRESULTTAG yyflag = yydoAction (yystackp, yyk, yyrule, &yysval]b4_locuser_args([&yyloc])[);
+      YYRESULTTAG yyflag = yystackp->yydoAction (yyk, yyrule, &yysval]b4_locuser_args([&yyloc])[);
       if (yyflag == yyerr && yystackp->yysplitPoint != YY_NULLPTR)
         {
           YYDPRINTF ((stderr, "Parse on stack %lu rejected by rule #%d.\n",
