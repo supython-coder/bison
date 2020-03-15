@@ -1203,6 +1203,9 @@ yylhsNonterm (yyRuleNum yyrule)
 static inline yyStateNum
 yyLRgotoState (yyStateNum yystate, yySymbol yysym);
 
+static void
+yypstates (yyGLRState* yyst);
+
 #define yystackp this
 struct yyGLRStack {
 
@@ -2067,6 +2070,12 @@ struct yyGLRStack {
     YY_RESERVE_GLRSTACK;
   }
 
+  void
+  yypstack (size_t yyk)
+  {
+    yypstates (yytops.yystates[yyk]);
+  }
+
  private:
   void popall() {
     /* If the stack is well-formed, pop the stack until it is empty,
@@ -2881,7 +2890,7 @@ yypstates (yyGLRState* yyst)
 static void
 yypstack (yyGLRStack* yystackp, size_t yyk)
 {
-  yypstates (yystackp->yytops.yystates[yyk]);
+  yystackp->yypstack(yyk);
 }
 
 #endif
