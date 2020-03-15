@@ -831,21 +831,6 @@ static void yypdumpstack (struct yyGLRStack* yystackp)
 #  define YYSTACKEXPANDABLE 1
 #endif
 
-#if YYSTACKEXPANDABLE
-# define YY_RESERVE_GLRSTACK(Yystack)                   \
-  do {                                                  \
-    if (Yystack->yyspaceLeft < YYHEADROOM)              \
-      Yystack->yyexpandGLRStack ();                       \
-  } while (0)
-#else
-# define YY_RESERVE_GLRSTACK(Yystack)                   \
-  do {                                                  \
-    if (Yystack->yyspaceLeft < YYHEADROOM)              \
-      Yystack->yyMemoryExhausted();                     \
-  } while (0)
-#endif
-
-
 #if YYERROR_VERBOSE
 
 # ifndef yystpcpy
@@ -970,11 +955,6 @@ yyisErrorAction (int yyaction)
 {
   return (yybool) (yyaction == 0);
 }
-
-static inline void
-yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
-            size_t yyposn,
-            YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[);
 
 static inline int
 yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts);
@@ -1252,6 +1232,21 @@ struct yyGLRStack {
     YYFREE (yyitems);
   }
 
+#if YYSTACKEXPANDABLE
+# define YY_RESERVE_GLRSTACK                            \
+  do {                                                  \
+    if (yyspaceLeft < YYHEADROOM)                       \
+      yyexpandGLRStack ();                              \
+  } while (0)
+#else
+# define YY_RESERVE_GLRSTACK                            \
+  do {                                                  \
+    if (yyspaceLeft < YYHEADROOM)                       \
+      yyMemoryExhausted();                              \
+  } while (0)
+#endif
+
+
   int yyerrState = 0;
 ]b4_locations_if([[  /* To compute the location of the error token.  */
   yyGLRStackItem yyerror_range[3];]])[
@@ -1389,7 +1384,7 @@ struct yyGLRStack {
     yynewOption->yynext = yystate->yysemantics.yyfirstVal;
     yystate->yysemantics.yyfirstVal = yynewOption;
 
-    YY_RESERVE_GLRSTACK (this);
+    YY_RESERVE_GLRSTACK;
   }
 
   void
@@ -1703,7 +1698,7 @@ struct yyGLRStack {
                 YYLLOC_DEFAULT (yyerrloc, (yyerror_range), 2);]])[
                 YY_SYMBOL_PRINT ("Shifting", yystos[yytable[yyj]],
                                  &yylval, &yyerrloc);
-                yyglrShift (this, 0, yytable[yyj],
+                yyglrShift (0, yytable[yyj],
                             yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
                 yys = yytops.yystates[0];
                 break;
@@ -1981,7 +1976,7 @@ struct yyGLRStack {
         if (yyflag != yyok)
           return yyflag;
         YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyrule], &yysval, &yyloc);
-        yyglrShift (this, yyk,
+        yyglrShift (yyk,
                     yyLRgotoState (yytops.yystates[yyk]->yylrState,
                                    yylhsNonterm (yyrule)),
                     yyposn, &yysval]b4_locations_if([, &yyloc])[);
@@ -2049,6 +2044,27 @@ struct yyGLRStack {
 
     /* Invokes YY_RESERVE_GLRSTACK.  */
     yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
+  }
+
+  /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
+   * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
+   * value *YYVALP and source location *YYLOCP.  */
+  inline void
+  yyglrShift (size_t yyk, yyStateNum yylrState,
+              size_t yyposn,
+              YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[)
+  {
+    yyGLRState* yynewState = &yynewGLRStackItem (yytrue)->yystate;
+
+    yynewState->yylrState = yylrState;
+    yynewState->yyposn = yyposn;
+    yynewState->yyresolved = yytrue;
+    yynewState->yypred = yytops.yystates[yyk];
+    yynewState->yysemantics.yysval = *yyvalp;]b4_locations_if([
+    yynewState->yyloc = *yylocp;])[
+    yytops.yystates[yyk] = yynewState;
+
+    YY_RESERVE_GLRSTACK;
   }
 
  private:
@@ -2274,6 +2290,7 @@ struct yyGLRStack {
   yyGLRStackItem* yyitems = YY_NULLPTR;
 };
 #undef yystackp
+#undef YYSTACKEXPANDABLE
 
 
 #if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
@@ -2465,28 +2482,6 @@ yyLRgotoState (yyStateNum yystate, yySymbol yysym)
 }
 
                                 /* GLRStacks */
-
-/** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
- * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
- * value *YYVALP and source location *YYLOCP.  */
-static inline void
-yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
-            size_t yyposn,
-            YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[)
-{
-  yyGLRState* yynewState = &yystackp->yynewGLRStackItem (yytrue)->yystate;
-
-  yynewState->yylrState = yylrState;
-  yynewState->yyposn = yyposn;
-  yynewState->yyresolved = yytrue;
-  yynewState->yypred = yystackp->yytops.yystates[yyk];
-  yynewState->yysemantics.yysval = *yyvalp;]b4_locations_if([
-  yynewState->yyloc = *yylocp;])[
-  yystackp->yytops.yystates[yyk] = yynewState;
-
-  YY_RESERVE_GLRSTACK (yystackp);
-}
-
 
 
 /** True iff YYY0 and YYY1 represent identical options at the top level.
@@ -2702,7 +2697,7 @@ b4_dollar_popdef])[]dnl
     case 2: goto yyexhaustedlab;
     default: goto yybuglab;
     }
-  yyglrShift (&yystack, 0, 0, 0, &yylval]b4_locations_if([, &yylloc])[);
+  yystack.yyglrShift (0, 0, 0, &yylval]b4_locations_if([, &yylloc])[);
   yyposn = 0;
 
   while (yytrue)
@@ -2740,7 +2735,7 @@ b4_dollar_popdef])[]dnl
                   YY_SYMBOL_PRINT ("Shifting", yytoken, &yylval, &yylloc);
                   yychar = YYEMPTY;
                   yyposn += 1;
-                  yyglrShift (&yystack, 0, yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
+                  yystack.yyglrShift (0, yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
                   if (0 < yystack.yyerrState)
                     yystack.yyerrState -= 1;
                 }
@@ -2817,7 +2812,7 @@ b4_dollar_popdef])[]dnl
               /* Note that yyconflicts were handled by yyprocessOneStack.  */
               YYDPRINTF ((stderr, "On stack %lu, ", (unsigned long) yys));
               YY_SYMBOL_PRINT ("shifting", yytoken_to_shift, &yylval, &yylloc);
-              yyglrShift (&yystack, yys, yyaction, yyposn,
+              yystack.yyglrShift (yys, yyaction, yyposn,
                           &yylval]b4_locations_if([, &yylloc])[);
               YYDPRINTF ((stderr, "Stack %lu now in state #%d\n",
                           (unsigned long) yys,
