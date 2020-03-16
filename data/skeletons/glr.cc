@@ -1235,21 +1235,6 @@ struct yyGLRStack {
     YYFREE (yyitems);
   }
 
-#if YYSTACKEXPANDABLE
-# define YY_RESERVE_GLRSTACK                            \
-  do {                                                  \
-    if (yyspaceLeft < YYHEADROOM)                       \
-      yyexpandGLRStack ();                              \
-  } while (0)
-#else
-# define YY_RESERVE_GLRSTACK                            \
-  do {                                                  \
-    if (yyspaceLeft < YYHEADROOM)                       \
-      yyMemoryExhausted();                              \
-  } while (0)
-#endif
-
-
   int yyerrState = 0;
 ]b4_locations_if([[  /* To compute the location of the error token.  */
   yyGLRStackItem yyerror_range[3];]])[
@@ -1328,7 +1313,18 @@ struct yyGLRStack {
     yynextFree = yynewItems + yysize;
     yyspaceLeft = yynewSize - yysize;
   }
+
+  void yyreserveGlrStack() {
+    if (yyspaceLeft < YYHEADROOM)
+      yyexpandGLRStack ();
+  }
+#else
+  void yyreserveGlrStack() {
+    if (yyspaceLeft < YYHEADROOM)
+      yyMemoryExhausted();
+  }
 #endif
+
   _Noreturn void
   yyMemoryExhausted ()
   {
@@ -1347,7 +1343,7 @@ struct yyGLRStack {
 
   /** Return a fresh GLRStackItem in this.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
-   *  YY_RESERVE_GLRSTACK afterwards to make sure there is sufficient
+   *  yyreserveStack afterwards to make sure there is sufficient
    *  headroom.  */
 
   inline yyGLRStackItem*
@@ -1384,7 +1380,7 @@ struct yyGLRStack {
     yynewOption->yynext = yystate->yysemantics.yyfirstVal;
     yystate->yysemantics.yyfirstVal = yynewOption;
 
-    YY_RESERVE_GLRSTACK;
+    yyreserveGlrStack();
   }
 
   void
@@ -2042,7 +2038,7 @@ struct yyGLRStack {
     yynewState->yysemantics.yyfirstVal = YY_NULLPTR;
     yytops.yystates[yyk] = yynewState;
 
-    /* Invokes YY_RESERVE_GLRSTACK.  */
+    /* Invokes yyreserveStack.  */
     yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
   }
 
@@ -2064,7 +2060,7 @@ struct yyGLRStack {
     yynewState->yyloc = *yylocp;])[
     yytops.yystates[yyk] = yynewState;
 
-    YY_RESERVE_GLRSTACK;
+    yyreserveGlrStack();
   }
 
   void
