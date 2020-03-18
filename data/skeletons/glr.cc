@@ -782,7 +782,6 @@ typedef enum { yyok, yyaccept, yyabort, yyerr } YYRESULTTAG;
 int yydebug;
 
 struct yyGLRStack;
-struct yyStateStack;
 static void yypstack (struct yyGLRStack* yystackp, size_t yyk)
   YY_ATTRIBUTE_UNUSED;
 static void yypdumpstack (struct yyGLRStack* yystackp)
@@ -915,6 +914,9 @@ struct yyGLRStateSet;
 struct yySemanticOption;
 union yyGLRStackItem;
 struct yyGLRStack;
+struct yyStateStack;
+
+#define YYOPTIONAT yystateStack.optionAt
 
 #define yypact_value_is_default(Yystate) \
   ]b4_table_value_equals([[pact]], [[Yystate]], [b4_pact_ninf])[
@@ -967,13 +969,14 @@ yydefaultAction (yyStateNum yystate)
 
 
 static void
-yydestroyGLRState (char const *yymsg, yyGLRState *yys]b4_user_formals[);
+yydestroyGLRState (yyStateStack& yystateStack, char const *yymsg,
+                   yyGLRState *yys]b4_user_formals[);
 
 struct yyGLRState {
   /** Type tag: always true.  */
   bool yyisState;
   /** Type tag for yysemantics.  If true, yysval applies, otherwise
-   *  yyfirstVal applies.  */
+   *  yyfirstValIndex applies.  */
   bool yyresolved;
   /** Number of corresponding LALR(1) machine state.  */
   yyStateNum yylrState;
@@ -984,8 +987,8 @@ struct yyGLRState {
   union {
     /** First in a chain of alternative reductions producing the
      *  nonterminal corresponding to this state, threaded through
-     *  yynext.  */
-    yySemanticOption* yyfirstVal;
+     *  yynextIndex.  */
+    size_t yyfirstValIndex;
     /** Semantic value for this state.  */
     YYSTYPE yysval;
   } yysemantics;]b4_locations_if([[
@@ -1125,6 +1128,8 @@ class yyGLRStateSet {
   static const size_t INITIAL_NUMBER_STATES = 16;
 };
 
+#define YY_INVALID_INDEX ((size_t) -1)
+
 struct yySemanticOption {
   /** Type tag: always false.  */
   bool yyisState;
@@ -1138,7 +1143,7 @@ struct yySemanticOption {
   YYLTYPE yyloc;]])[
   /** Next sibling in chain of options.  To facilitate merging,
    *  options are chained in decreasing order by address.  */
-  yySemanticOption* yynext;
+  size_t yynextIndex;
 };
 
 /** Type of the items in the GLR stack.  The yyisState field
@@ -1161,13 +1166,15 @@ static bool
 yyidenticalOptions (yySemanticOption* yyy0, yySemanticOption* yyy1);
 
 static void
-yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1);
+yymergeOptionSets (yyStateStack& yystateStack,
+                   yySemanticOption* yyy0,
+                   yySemanticOption* yyy1);
 
 static int
 yypreference (yySemanticOption* y0, yySemanticOption* y1);
 
 static YYRESULTTAG
-yyreportAmbiguity (yySemanticOption* yyx0,
+yyreportAmbiguity (yyStateStack& yystateStack, yySemanticOption* yyx0,
                    yySemanticOption* yyx1]b4_pure_formals[);
 
 static void
@@ -1283,10 +1290,6 @@ struct yyStateStack {
             if (yys0->yypred != YY_NULLPTR)
               yys1->yypred =
                 YYRELOC (yyp0, yyp1, yys0->yypred, yystate);
-            if (! yys0->yyresolved &&
-                yys0->yysemantics.yyfirstVal != YY_NULLPTR)
-              yys1->yysemantics.yyfirstVal =
-                YYRELOC (yyp0, yyp1, yys0->yysemantics.yyfirstVal, yyoption);
           }
         else
           {
@@ -1294,8 +1297,6 @@ struct yyStateStack {
             yySemanticOption* yyv1 = &yyp1->yyoption;
             if (yyv0->yystate != YY_NULLPTR)
               yyv1->yystate = YYRELOC (yyp0, yyp1, yyv0->yystate, yystate);
-            if (yyv0->yynext != YY_NULLPTR)
-              yyv1->yynext = YYRELOC (yyp0, yyp1, yyv0->yynext, yyoption);
           }
       }
     if (isSplit())
@@ -1319,14 +1320,14 @@ struct yyStateStack {
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
    *  yyreserveStack afterwards to make sure there is sufficient
    *  headroom.  */
-  inline yyGLRStackItem*
+  inline size_t
   yynewGLRStackItem (bool yyisState)
   {
     yyGLRStackItem* yynewItem = yynextFree;
     yyspaceLeft -= 1;
     yynextFree += 1;
     yynewItem->yystate.yyisState = yyisState;
-    return yynewItem;
+    return yynewItem - yyitems;
   }
 
   void
@@ -1377,6 +1378,10 @@ struct yyStateStack {
 
   yyGLRStackItem& operator[](size_t i) {
     return yyitems[i];
+  }
+
+  yySemanticOption& optionAt(size_t i) {
+    return operator[](i).yyoption;
   }
 
   size_t
@@ -1477,21 +1482,21 @@ struct yyGLRStack {
   yyaddDeferredAction (size_t yyk, yyGLRState* yystate,
                        yyGLRState* yyrhs, yyRuleNum yyrule)
   {
-    yySemanticOption* yynewOption =
-      &yystateStack.yynewGLRStackItem (false)->yyoption;
-    YYASSERT (!yynewOption->yyisState);
-    yynewOption->yystate = yyrhs;
-    yynewOption->yyrule = yyrule;
+    size_t yynewIndex = yystateStack.yynewGLRStackItem (false);
+    yySemanticOption& yynewOption = YYOPTIONAT(yynewIndex);
+    YYASSERT (!yynewOption.yyisState);
+    yynewOption.yystate = yyrhs;
+    yynewOption.yyrule = yyrule;
     if (yystateStack.yytops.lookaheadNeeds(yyk))
       {
-        yynewOption->yyrawchar = yychar;
-        yynewOption->yyval = yylval;]b4_locations_if([
-        yynewOption->yyloc = yylloc;])[
+        yynewOption.yyrawchar = yychar;
+        yynewOption.yyval = yylval;]b4_locations_if([
+        yynewOption.yyloc = yylloc;])[
       }
     else
-      yynewOption->yyrawchar = YYEMPTY;
-    yynewOption->yynext = yystate->yysemantics.yyfirstVal;
-    yystate->yysemantics.yyfirstVal = yynewOption;
+      yynewOption.yyrawchar = YYEMPTY;
+    yynewOption.yynextIndex = yystate->yysemantics.yyfirstValIndex;
+    yystate->yysemantics.yyfirstValIndex = yynewIndex;
 
     yyreserveGlrStack();
   }
@@ -1520,8 +1525,7 @@ struct yyGLRStack {
                        (long) YYINDEX (item.yystate.yypred));
             if (! item.yystate.yyresolved)
               YYFPRINTF (stderr, ", firstVal: %ld",
-                         (long) YYINDEX (item.yystate
-                                               .yysemantics.yyfirstVal));
+                         (long) item.yystate.yysemantics.yyfirstValIndex);
           }
         else
           {
@@ -1530,7 +1534,7 @@ struct yyGLRStack {
             YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
                        item.yyoption.yyrule - 1,
                        (long) YYINDEX (item.yyoption.yystate),
-                       (long) YYINDEX (item.yyoption.yynext));
+                       (long) item.yyoption.yynextIndex);
           }
         YYFPRINTF (stderr, "\n");
       }
@@ -1773,7 +1777,7 @@ struct yyGLRStack {
           }]b4_locations_if([[
         yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
         if (yys->yypred != YY_NULLPTR)
-          yydestroyGLRState ("Error: popping", yys]b4_user_args[);
+          yydestroyGLRState (yystateStack, "Error: popping", yys]b4_user_args[);
         yystateStack.yytops[0] = yys->yypred;
         yystateStack.yynextFree -= 1;
         yystateStack.yyspaceLeft += 1;
@@ -2099,18 +2103,19 @@ struct yyGLRStack {
   yyglrShiftDefer (size_t yyk, yyStateNum yylrState,
                    size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule)
   {
-    yyGLRState* yynewState = &yystateStack.yynewGLRStackItem (true)->yystate;
-    YYASSERT (yynewState->yyisState);
+    const size_t yynewIndex = yystateStack.yynewGLRStackItem (true);
+    yyGLRState& yynewState = yystateStack[yynewIndex].yystate;
+    YYASSERT (yynewState.yyisState);
 
-    yynewState->yylrState = yylrState;
-    yynewState->yyposn = yyposn;
-    yynewState->yyresolved = false;
-    yynewState->yypred = yystateStack.yytops[yyk];
-    yynewState->yysemantics.yyfirstVal = YY_NULLPTR;
-    yystateStack.yytops[yyk] = yynewState;
+    yynewState.yylrState = yylrState;
+    yynewState.yyposn = yyposn;
+    yynewState.yyresolved = false;
+    yynewState.yypred = yystateStack.yytops[yyk];
+    yynewState.yysemantics.yyfirstValIndex = YY_INVALID_INDEX;
+    yystateStack.yytops[yyk] = &yynewState;
 
     /* Invokes yyreserveStack.  */
-    yyaddDeferredAction (yyk, yynewState, yyrhs, yyrule);
+    yyaddDeferredAction (yyk, &yynewState, yyrhs, yyrule);
   }
 
   /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
@@ -2121,15 +2126,16 @@ struct yyGLRStack {
               size_t yyposn,
               YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[)
   {
-    yyGLRState* yynewState = &yystateStack.yynewGLRStackItem (true)->yystate;
+    const size_t yynewIndex = yystateStack.yynewGLRStackItem (true);
+    yyGLRState& yynewState = yystateStack[yynewIndex].yystate;
 
-    yynewState->yylrState = yylrState;
-    yynewState->yyposn = yyposn;
-    yynewState->yyresolved = true;
-    yynewState->yypred = yystateStack.yytops[yyk];
-    yynewState->yysemantics.yysval = *yyvalp;]b4_locations_if([
-    yynewState->yyloc = *yylocp;])[
-    yystateStack.yytops[yyk] = yynewState;
+    yynewState.yylrState = yylrState;
+    yynewState.yyposn = yyposn;
+    yynewState.yyresolved = true;
+    yynewState.yypred = yystateStack.yytops[yyk];
+    yynewState.yysemantics.yysval = *yyvalp;]b4_locations_if([
+    yynewState.yyloc = *yylocp;])[
+    yystateStack.yytops[yyk] = &yynewState;
 
     yyreserveGlrStack();
   }
@@ -2155,7 +2161,7 @@ struct yyGLRStack {
                   yyGLRState *state = yystateStack.yytops[k];]b4_locations_if([[
                     yyerror_range[1].yystate.yyloc = state->yyloc;]])[
                   if (state->yypred != YY_NULLPTR)
-                    yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
+                    yydestroyGLRState (yystateStack, "Cleanup: popping", state]b4_user_args[);
                   yystateStack.yytops[k] = state->yypred;
                   yystateStack.yynextFree -= 1;
                   yystateStack.yyspaceLeft += 1;
@@ -2193,22 +2199,22 @@ struct yyGLRStack {
   YYRESULTTAG
   yyresolveValue (yyGLRState* yys]b4_user_formals[)
   {
-    yySemanticOption* yyoptionList = yys->yysemantics.yyfirstVal;
-    yySemanticOption* yybest = yyoptionList;
-    yySemanticOption** yypp;
+    size_t yybestIndex = yys->yysemantics.yyfirstValIndex;
     bool yymerge = false;
     YYSTYPE yysval;
     YYRESULTTAG yyflag;]b4_locations_if([
     YYLTYPE *yylocp = &yys->yyloc;])[
 
-    for (yypp = &yyoptionList->yynext; *yypp != YY_NULLPTR; )
+    for (size_t* yyindex = &YYOPTIONAT(yybestIndex).yynextIndex;
+         *yyindex != YY_INVALID_INDEX; )
       {
-        yySemanticOption* yyp = *yypp;
+        yySemanticOption* const yyp = &YYOPTIONAT(*yyindex);
+        yySemanticOption* const yybest = &YYOPTIONAT(yybestIndex);
 
         if (yyidenticalOptions (yybest, yyp))
           {
-            yymergeOptionSets (yybest, yyp);
-            *yypp = yyp->yynext;
+            yymergeOptionSets (yystateStack, yybest, yyp);
+            *yyindex = yyp->yynextIndex;
           }
         else
           {
@@ -2216,7 +2222,7 @@ struct yyGLRStack {
               {
               case 0:]b4_locations_if([[
                 yyresolveLocations (yys, 1]b4_user_args[);]])[
-                return yyreportAmbiguity (yybest, yyp]b4_pure_args[);
+                return yyreportAmbiguity (yystateStack, yybest, yyp]b4_pure_args[);
                 break;
               case 1:
                 yymerge = true;
@@ -2224,7 +2230,7 @@ struct yyGLRStack {
               case 2:
                 break;
               case 3:
-                yybest = yyp;
+                yybestIndex = *yyindex;
                 yymerge = false;
                 break;
               default:
@@ -2233,18 +2239,21 @@ struct yyGLRStack {
                    omitted.  */
                 break;
               }
-            yypp = &yyp->yynext;
+            yyindex = &yyp->yynextIndex;
           }
       }
 
+    yySemanticOption* const yybest = &YYOPTIONAT(yybestIndex);
     if (yymerge)
       {
-        yySemanticOption* yyp;
         int yyprec = yydprec[yybest->yyrule];
         yyflag = yyresolveAction (yybest, &yysval]b4_locuser_args[);
         if (yyflag == yyok)
-          for (yyp = yybest->yynext; yyp != YY_NULLPTR; yyp = yyp->yynext)
+          for (size_t yyindex = yybest->yynextIndex;
+               yyindex != YY_INVALID_INDEX;
+               yyindex = YYOPTIONAT(yyindex).yynextIndex)
             {
+              yySemanticOption* yyp = &YYOPTIONAT(yyindex);
               if (yyprec == yydprec[yyp->yyrule])
                 {
                   YYSTYPE yysval_other;]b4_locations_if([
@@ -2270,7 +2279,7 @@ struct yyGLRStack {
         yys->yysemantics.yysval = yysval;
       }
     else
-      yys->yysemantics.yyfirstVal = YY_NULLPTR;
+      yys->yysemantics.yyfirstValIndex = YY_INVALID_INDEX;
     return yyflag;
   }
 
@@ -2290,7 +2299,7 @@ struct yyGLRStack {
       {
         yyGLRState *yys;
         for (yys = yyopt->yystate; yynrhs > 0; yys = yys->yypred, yynrhs -= 1)
-          yydestroyGLRState ("Cleanup: popping", yys]b4_user_args[);
+          yydestroyGLRState (yystateStack, "Cleanup: popping", yys]b4_user_args[);
         return yyflag;
       }
 
@@ -2317,7 +2326,7 @@ struct yyGLRStack {
   /** Resolve the locations for each of the YYN1 states in *YYSTACKP,
    *  ending at YYS1.  Has no effect on previously resolved states.
    *  The first semantic option of a state is always chosen.  */
-  static void
+  void
   yyresolveLocations (yyGLRState *yys1, int yyn1]b4_user_formals[)
   {
     if (0 < yyn1)
@@ -2327,8 +2336,9 @@ struct yyGLRStack {
           {
             yyGLRStackItem yyrhsloc[1 + YYMAXRHS];
             int yynrhs;
-            yySemanticOption *yyoption = yys1->yysemantics.yyfirstVal;
-            YYASSERT (yyoption);
+            size_t yyoptionIndex = yys1->yysemantics.yyfirstValIndex;
+            YYASSERT (yyoptionIndex != YY_INVALID_INDEX);
+            yySemanticOption *const yyoption = &YYOPTIONAT(yyoptionIndex);
             yynrhs = yyrhsLength (yyoption->yyrule);
             if (0 < yynrhs)
               {
@@ -2395,7 +2405,7 @@ yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
       else
         /* The effect of using yysval or yyloc (in an immediate rule) is
          * undefined.  */
-        yyvsp[i].yystate.yysemantics.yyfirstVal = YY_NULLPTR;]b4_locations_if([[
+        yyvsp[i].yystate.yysemantics.yyfirstValIndex = YY_INVALID_INDEX;]b4_locations_if([[
       yyvsp[i].yystate.yyloc = s->yyloc;]])[
       s = yyvsp[i].yystate.yypred = s->yypred;
     }
@@ -2477,7 +2487,8 @@ yyrhsLength (yyRuleNum yyrule)
 }
 
 static void
-yydestroyGLRState (char const *yymsg, yyGLRState *yys]b4_user_formals[)
+yydestroyGLRState (yyStateStack& yystateStack, char const *yymsg,
+                   yyGLRState *yys]b4_user_formals[)
 {
   if (yys->yyresolved)
     yydestruct (yymsg, yystos[yys->yylrState],
@@ -2487,23 +2498,23 @@ yydestroyGLRState (char const *yymsg, yyGLRState *yys]b4_user_formals[)
 #if ]b4_api_PREFIX[DEBUG
       if (yydebug)
         {
-          if (yys->yysemantics.yyfirstVal)
-            YYFPRINTF (stderr, "%s unresolved", yymsg);
-          else
+          if (yys->yysemantics.yyfirstValIndex == YY_INVALID_INDEX)
             YYFPRINTF (stderr, "%s incomplete", yymsg);
+          else
+            YYFPRINTF (stderr, "%s unresolved", yymsg);
           YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
         }
 #endif
 
-      if (yys->yysemantics.yyfirstVal)
+      if (yys->yysemantics.yyfirstValIndex != YY_INVALID_INDEX)
         {
-          yySemanticOption *yyoption = yys->yysemantics.yyfirstVal;
+          yySemanticOption *yyoption = &YYOPTIONAT(yys->yysemantics.yyfirstValIndex);
           yyGLRState *yyrh;
           int yyn;
           for (yyrh = yyoption->yystate, yyn = yyrhsLength (yyoption->yyrule);
                yyn > 0;
                yyrh = yyrh->yypred, yyn -= 1)
-            yydestroyGLRState (yymsg, yyrh]b4_user_args[);
+            yydestroyGLRState (yystateStack, yymsg, yyrh]b4_user_args[);
         }
     }
 }
@@ -2580,7 +2591,9 @@ yyidenticalOptions (yySemanticOption* yyy0, yySemanticOption* yyy1)
 /** Assuming identicalOptions (YYY0,YYY1), destructively merge the
  *  alternative semantic values for the RHS-symbols of YYY1 and YYY0.  */
 static void
-yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
+yymergeOptionSets (yyStateStack& yystateStack,
+                   yySemanticOption* yyy0,
+                   yySemanticOption* yyy1)
 {
   yyGLRState *yys0, *yys1;
   int yyn;
@@ -2603,27 +2616,27 @@ yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
         }
       else
         {
-          yySemanticOption** yyz0p = &yys0->yysemantics.yyfirstVal;
-          yySemanticOption* yyz1 = yys1->yysemantics.yyfirstVal;
+          size_t *yyz0p = &yys0->yysemantics.yyfirstValIndex;
+          size_t yyz1 = yys1->yysemantics.yyfirstValIndex;
           while (true)
             {
-              if (yyz1 == *yyz0p || yyz1 == YY_NULLPTR)
+              if (yyz1 == *yyz0p || yyz1 == YY_INVALID_INDEX)
                 break;
-              else if (*yyz0p == YY_NULLPTR)
+              else if (*yyz0p == YY_INVALID_INDEX)
                 {
                   *yyz0p = yyz1;
                   break;
                 }
               else if (*yyz0p < yyz1)
                 {
-                  yySemanticOption* yyz = *yyz0p;
+                  size_t yyz = *yyz0p;
                   *yyz0p = yyz1;
-                  yyz1 = yyz1->yynext;
-                  (*yyz0p)->yynext = yyz;
+                  yyz1 = YYOPTIONAT(yyz1).yynextIndex;
+                  YYOPTIONAT(*yyz0p).yynextIndex = yyz;
                 }
-              yyz0p = &(*yyz0p)->yynext;
+              yyz0p = &YYOPTIONAT(*yyz0p).yynextIndex;
             }
-          yys1->yysemantics.yyfirstVal = yys0->yysemantics.yyfirstVal;
+          yys1->yysemantics.yyfirstValIndex = yys0->yysemantics.yyfirstValIndex;
         }
     }
 }
@@ -2655,7 +2668,7 @@ yypreference (yySemanticOption* y0, yySemanticOption* y1)
 
 #if ]b4_api_PREFIX[DEBUG
 static void
-yyreportTree (yySemanticOption* yyx, int yyindent)
+yyreportTree (yyStateStack& yystateStack, yySemanticOption* yyx, int yyindent)
 {
   int yynrhs = yyrhsLength (yyx->yyrule);
   int yyi;
@@ -2696,13 +2709,15 @@ yyreportTree (yySemanticOption* yyx, int yyindent)
                        (unsigned long) yystates[yyi]->yyposn);
         }
       else
-        yyreportTree (yystates[yyi]->yysemantics.yyfirstVal, yyindent+2);
+        yyreportTree (yystateStack,
+                      &YYOPTIONAT(yystates[yyi]->yysemantics.yyfirstValIndex),
+                      yyindent+2);
     }
 }
 #endif
 
 static YYRESULTTAG
-yyreportAmbiguity (yySemanticOption* yyx0,
+yyreportAmbiguity (yyStateStack& yystateStack, yySemanticOption* yyx0,
                    yySemanticOption* yyx1]b4_pure_formals[)
 {
   YYUSE (yyx0);
@@ -2711,9 +2726,9 @@ yyreportAmbiguity (yySemanticOption* yyx0,
 #if ]b4_api_PREFIX[DEBUG
   YYFPRINTF (stderr, "Ambiguity detected.\n");
   YYFPRINTF (stderr, "Option 1,\n");
-  yyreportTree (yyx0, 2);
+  yyreportTree (yystateStack, yyx0, 2);
   YYFPRINTF (stderr, "\nOption 2,\n");
-  yyreportTree (yyx1, 2);
+  yyreportTree (yystateStack, yyx1, 2);
   YYFPRINTF (stderr, "\n");
 #endif
 
@@ -2738,6 +2753,7 @@ yyreportAmbiguity (yySemanticOption* yyx0,
     }                                                                        \
   } while (0)
 
+#undef YYOPTIONAT
 /*----------.
 | yyparse.  |
 `----------*/
