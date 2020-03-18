@@ -251,6 +251,62 @@ b4_percent_code_get([[requires]])[
 #include <string>
 #include <vector>
 
+template <typename Parameter>
+class StrongIndexAlias
+{
+ public:
+  static StrongIndexAlias create(size_t value) {
+    StrongIndexAlias result;
+    result.value_ = value;
+    return result;
+  }
+
+  size_t& get() { return value_; }
+  size_t const& get() const {return value_; }
+
+  StrongIndexAlias operator+(size_t other) const {
+    return StrongIndexAlias(get() + other);
+  }
+
+  void operator+=(size_t other) {
+    value_ += other;
+  }
+
+  StrongIndexAlias operator-(size_t other) {
+    return StrongIndexAlias(get() - other);
+  }
+
+  void operator-=(size_t other) {
+    value_ -= other;
+  }
+
+  size_t operator-(StrongIndexAlias other) {
+    return StrongIndexAlias(get() - other.get());
+  }
+
+  bool isValid() const {
+    return value_ == INVALID_INDEX;
+  }
+
+  void setInvalid() {
+    value_ = INVALID_INDEX;
+  }
+
+  bool operator==(StrongIndexAlias other) {
+    return get() == other.get();
+  }
+
+  bool operator<(StrongIndexAlias other) {
+    return get() < other.get();
+  }
+
+ private:
+  static const size_t INVALID_INDEX = ((size_t) -1);
+
+  // WARNING: 0-initialized.
+  size_t value_;
+};
+
 ]b4_cxx_portability[
 ]m4_ifdef([b4_location_include],
           [[# include ]b4_location_include])[
@@ -916,6 +972,12 @@ union yyGLRStackItem;
 struct yyGLRStack;
 struct yyStateStack;
 
+typedef StrongIndexAlias<struct yySemanticOptionTag> yySemanticOptionIndex;
+
+yySemanticOptionIndex yycreateOptionIndex(size_t value) {
+  return yySemanticOptionIndex::create(value);
+}
+
 #define YYOPTIONAT yystateStack.optionAt
 
 #define yypact_value_is_default(Yystate) \
@@ -988,7 +1050,7 @@ struct yyGLRState {
     /** First in a chain of alternative reductions producing the
      *  nonterminal corresponding to this state, threaded through
      *  yynextIndex.  */
-    size_t yyfirstValIndex;
+    yySemanticOptionIndex yyfirstValIndex;
     /** Semantic value for this state.  */
     YYSTYPE yysval;
   } yysemantics;]b4_locations_if([[
@@ -1128,8 +1190,6 @@ class yyGLRStateSet {
   static const size_t INITIAL_NUMBER_STATES = 16;
 };
 
-#define YY_INVALID_INDEX ((size_t) -1)
-
 struct yySemanticOption {
   /** Type tag: always false.  */
   bool yyisState;
@@ -1143,7 +1203,7 @@ struct yySemanticOption {
   YYLTYPE yyloc;]])[
   /** Next sibling in chain of options.  To facilitate merging,
    *  options are chained in decreasing order by address.  */
-  size_t yynextIndex;
+  yySemanticOptionIndex yynextIndex;
 };
 
 /** Type of the items in the GLR stack.  The yyisState field
@@ -1380,8 +1440,8 @@ struct yyStateStack {
     return yyitems[i];
   }
 
-  yySemanticOption& optionAt(size_t i) {
-    return operator[](i).yyoption;
+  yySemanticOption& optionAt(yySemanticOptionIndex i) {
+    return operator[](i.get()).yyoption;
   }
 
   size_t
@@ -1482,7 +1542,7 @@ struct yyGLRStack {
   yyaddDeferredAction (size_t yyk, yyGLRState* yystate,
                        yyGLRState* yyrhs, yyRuleNum yyrule)
   {
-    size_t yynewIndex = yystateStack.yynewGLRStackItem (false);
+    yySemanticOptionIndex yynewIndex = yycreateOptionIndex(yystateStack.yynewGLRStackItem (false));
     yySemanticOption& yynewOption = YYOPTIONAT(yynewIndex);
     YYASSERT (!yynewOption.yyisState);
     yynewOption.yystate = yyrhs;
@@ -1525,7 +1585,7 @@ struct yyGLRStack {
                        (long) YYINDEX (item.yystate.yypred));
             if (! item.yystate.yyresolved)
               YYFPRINTF (stderr, ", firstVal: %ld",
-                         (long) item.yystate.yysemantics.yyfirstValIndex);
+                         (long) item.yystate.yysemantics.yyfirstValIndex.get());
           }
         else
           {
@@ -1534,7 +1594,7 @@ struct yyGLRStack {
             YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
                        item.yyoption.yyrule - 1,
                        (long) YYINDEX (item.yyoption.yystate),
-                       (long) item.yyoption.yynextIndex);
+                       (long) item.yyoption.yynextIndex.get());
           }
         YYFPRINTF (stderr, "\n");
       }
@@ -2111,7 +2171,7 @@ struct yyGLRStack {
     yynewState.yyposn = yyposn;
     yynewState.yyresolved = false;
     yynewState.yypred = yystateStack.yytops[yyk];
-    yynewState.yysemantics.yyfirstValIndex = YY_INVALID_INDEX;
+    yynewState.yysemantics.yyfirstValIndex.setInvalid();
     yystateStack.yytops[yyk] = &yynewState;
 
     /* Invokes yyreserveStack.  */
@@ -2199,14 +2259,14 @@ struct yyGLRStack {
   YYRESULTTAG
   yyresolveValue (yyGLRState* yys]b4_user_formals[)
   {
-    size_t yybestIndex = yys->yysemantics.yyfirstValIndex;
+    yySemanticOptionIndex yybestIndex = yys->yysemantics.yyfirstValIndex;
     bool yymerge = false;
     YYSTYPE yysval;
     YYRESULTTAG yyflag;]b4_locations_if([
     YYLTYPE *yylocp = &yys->yyloc;])[
 
-    for (size_t* yyindex = &YYOPTIONAT(yybestIndex).yynextIndex;
-         *yyindex != YY_INVALID_INDEX; )
+    for (yySemanticOptionIndex* yyindex = &YYOPTIONAT(yybestIndex).yynextIndex;
+         yyindex->isValid(); )
       {
         yySemanticOption* const yyp = &YYOPTIONAT(*yyindex);
         yySemanticOption* const yybest = &YYOPTIONAT(yybestIndex);
@@ -2249,8 +2309,8 @@ struct yyGLRStack {
         int yyprec = yydprec[yybest->yyrule];
         yyflag = yyresolveAction (yybest, &yysval]b4_locuser_args[);
         if (yyflag == yyok)
-          for (size_t yyindex = yybest->yynextIndex;
-               yyindex != YY_INVALID_INDEX;
+          for (yySemanticOptionIndex yyindex = yybest->yynextIndex;
+               yyindex.isValid();
                yyindex = YYOPTIONAT(yyindex).yynextIndex)
             {
               yySemanticOption* yyp = &YYOPTIONAT(yyindex);
@@ -2279,7 +2339,7 @@ struct yyGLRStack {
         yys->yysemantics.yysval = yysval;
       }
     else
-      yys->yysemantics.yyfirstValIndex = YY_INVALID_INDEX;
+      yys->yysemantics.yyfirstValIndex.setInvalid();
     return yyflag;
   }
 
@@ -2336,8 +2396,8 @@ struct yyGLRStack {
           {
             yyGLRStackItem yyrhsloc[1 + YYMAXRHS];
             int yynrhs;
-            size_t yyoptionIndex = yys1->yysemantics.yyfirstValIndex;
-            YYASSERT (yyoptionIndex != YY_INVALID_INDEX);
+            yySemanticOptionIndex yyoptionIndex = yys1->yysemantics.yyfirstValIndex;
+            YYASSERT (yyoptionIndex.isValid());
             yySemanticOption *const yyoption = &YYOPTIONAT(yyoptionIndex);
             yynrhs = yyrhsLength (yyoption->yyrule);
             if (0 < yynrhs)
@@ -2405,7 +2465,7 @@ yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
       else
         /* The effect of using yysval or yyloc (in an immediate rule) is
          * undefined.  */
-        yyvsp[i].yystate.yysemantics.yyfirstValIndex = YY_INVALID_INDEX;]b4_locations_if([[
+        yyvsp[i].yystate.yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
       yyvsp[i].yystate.yyloc = s->yyloc;]])[
       s = yyvsp[i].yystate.yypred = s->yypred;
     }
@@ -2498,15 +2558,15 @@ yydestroyGLRState (yyStateStack& yystateStack, char const *yymsg,
 #if ]b4_api_PREFIX[DEBUG
       if (yydebug)
         {
-          if (yys->yysemantics.yyfirstValIndex == YY_INVALID_INDEX)
-            YYFPRINTF (stderr, "%s incomplete", yymsg);
-          else
+          if (yys->yysemantics.yyfirstValIndex.isValid())
             YYFPRINTF (stderr, "%s unresolved", yymsg);
+          else
+            YYFPRINTF (stderr, "%s incomplete", yymsg);
           YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
         }
 #endif
 
-      if (yys->yysemantics.yyfirstValIndex != YY_INVALID_INDEX)
+      if (yys->yysemantics.yyfirstValIndex.isValid())
         {
           yySemanticOption *yyoption = &YYOPTIONAT(yys->yysemantics.yyfirstValIndex);
           yyGLRState *yyrh;
@@ -2616,20 +2676,20 @@ yymergeOptionSets (yyStateStack& yystateStack,
         }
       else
         {
-          size_t *yyz0p = &yys0->yysemantics.yyfirstValIndex;
-          size_t yyz1 = yys1->yysemantics.yyfirstValIndex;
+          yySemanticOptionIndex* yyz0p = &yys0->yysemantics.yyfirstValIndex;
+          yySemanticOptionIndex yyz1 = yys1->yysemantics.yyfirstValIndex;
           while (true)
             {
-              if (yyz1 == *yyz0p || yyz1 == YY_INVALID_INDEX)
+              if (yyz1 == *yyz0p || !yyz1.isValid())
                 break;
-              else if (*yyz0p == YY_INVALID_INDEX)
+              else if (!yyz0p->isValid())
                 {
                   *yyz0p = yyz1;
                   break;
                 }
               else if (*yyz0p < yyz1)
                 {
-                  size_t yyz = *yyz0p;
+                  yySemanticOptionIndex yyz = *yyz0p;
                   *yyz0p = yyz1;
                   yyz1 = YYOPTIONAT(yyz1).yynextIndex;
                   YYOPTIONAT(*yyz0p).yynextIndex = yyz;
