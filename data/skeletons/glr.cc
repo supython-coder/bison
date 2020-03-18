@@ -1264,7 +1264,7 @@ struct yyStateStack {
               yyv1->yynext = YYRELOC (yyp0, yyp1, yyv0->yynext, yyoption);
           }
       }
-    if (yysplitPoint != YY_NULLPTR)
+    if (isSplit())
       yysplitPoint = YYRELOC (yyitems, yynewItems,
                               yysplitPoint, yystate);
 
@@ -1298,7 +1298,7 @@ struct yyStateStack {
   void
   yycompressStack ()
   {
-    if (yytops.yystates.size() != 1 || yysplitPoint == YY_NULLPTR)
+    if (yytops.yystates.size() != 1 || !isSplit())
       return;
 
     yyGLRState* yyr = YY_NULLPTR;
@@ -1324,6 +1324,10 @@ struct yyStateStack {
       }
   }
 
+  bool isSplit() const {
+    return yysplitPoint != YY_NULLPTR;
+  }
+
   // Present the interface of a vector of yyGLRStackItem.
   const yyGLRStackItem* begin() const {
     return yyitems;
@@ -1344,7 +1348,7 @@ struct yyStateStack {
   size_t
   yysplitStack (size_t yyk)
   {
-    if (yysplitPoint == YY_NULLPTR)
+    if (!isSplit())
       {
         YYASSERT (yyk == 0);
         yysplitPoint = yytops.yystates[yyk];
@@ -1358,7 +1362,7 @@ struct yyStateStack {
   inline void
   yyupdateSplit (yyGLRState* yys)
   {
-    if (yysplitPoint != YY_NULLPTR && yysplitPoint > yys)
+    if (isSplit() && yysplitPoint > yys)
       yysplitPoint = yys;
   }
 
@@ -1848,7 +1852,7 @@ struct yyGLRStack {
   yyuserAction (yyRuleNum yyn, int yyrhslen, yyGLRStackItem* yyvsp,
                 YYSTYPE* yyvalp]b4_locuser_formals[)
   {
-    bool yynormal YY_ATTRIBUTE_UNUSED = (yystateStack.yysplitPoint == YY_NULLPTR);
+    bool yynormal YY_ATTRIBUTE_UNUSED = (!yystateStack.isSplit());
     int yylow;
   ]b4_parse_param_use([yyvalp], [yylocp])dnl
   [  YYUSE (yyrhslen);
@@ -1912,7 +1916,7 @@ struct yyGLRStack {
   YYRESULTTAG
   yyresolveStack (]b4_user_formals_no_comma[)
   {
-    if (yystateStack.yysplitPoint != YY_NULLPTR)
+    if (yystateStack.isSplit())
       {
         yyGLRState* yys;
         int yyn;
@@ -1939,7 +1943,7 @@ struct yyGLRStack {
   {
     int yynrhs = yyrhsLength (yyrule);
 
-    if (yystateStack.yysplitPoint == YY_NULLPTR)
+    if (!yystateStack.isSplit())
       {
         /* Standard special case: single stack.  */
         yyGLRStackItem* yyrhs = (yyGLRStackItem*) yystateStack.yytops.yystates[yyk];
@@ -1991,13 +1995,13 @@ struct yyGLRStack {
   {
     size_t yyposn = yystateStack.yytops.yystates[yyk]->yyposn;
 
-    if (yyforceEval || yystateStack.yysplitPoint == YY_NULLPTR)
+    if (yyforceEval || !yystateStack.isSplit())
       {
         YYSTYPE yysval;]b4_locations_if([[
         YYLTYPE yyloc;]])[
 
         YYRESULTTAG yyflag = yydoAction (yyk, yyrule, &yysval]b4_locuser_args([&yyloc])[);
-        if (yyflag == yyerr && yystateStack.yysplitPoint != YY_NULLPTR)
+        if (yyflag == yyerr && yystateStack.isSplit())
           {
             YYDPRINTF ((stderr, "Parse on stack %lu rejected by rule #%d.\n",
                        (unsigned long) yyk, yyrule - 1));
