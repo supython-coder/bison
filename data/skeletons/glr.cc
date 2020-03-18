@@ -993,6 +993,8 @@ struct yyGLRState {
   YYLTYPE yyloc;]])[
 };
 
+/** A stack of GLRState representing the different heads during
+  * nondeterministic evaluation. */
 class yyGLRStateSet {
  public:
   /** Initialize YYSET to a singleton set containing an empty stack.  */
@@ -1048,7 +1050,7 @@ class yyGLRStateSet {
   void
   yyundeleteLastStack ()
   {
-    if (yylastDeleted == YY_NULLPTR || yystates.size() != 0)
+    if (yylastDeleted == YY_NULLPTR || !yystates.empty())
       return;
     yystates.push_back(yylastDeleted);
     YYDPRINTF ((stderr, "Restoring last deleted stack as stack #0.\n"));
@@ -1096,8 +1098,6 @@ class yyGLRStateSet {
   }
 
 
- private:
-
   size_t
   yysplitStack (size_t yyk)
   {
@@ -1105,6 +1105,12 @@ class yyGLRStateSet {
     yylookaheadNeeds.push_back(yylookaheadNeeds[yyk]);
     return yystates.size() - 1;
   }
+
+  void clearLastDeleted() {
+    yylastDeleted = YY_NULLPTR;
+  }
+
+ private:
 
   std::vector<yyGLRState*> yystates;
   /** During nondeterministic operation, yylookaheadNeeds tracks which
@@ -1116,7 +1122,6 @@ class yyGLRStateSet {
   /** The last stack we invalidated.  */
   yyGLRState* yylastDeleted;
 
-  friend class yyStateStack;
   static const size_t INITIAL_NUMBER_STATES = 16;
 };
 
@@ -1340,7 +1345,7 @@ struct yyStateStack {
     yynextFree = ((yyGLRStackItem*) yysplitPoint) + 1;
     yyspaceLeft -= (size_t) (yynextFree - yyitems);
     yysplitPoint = YY_NULLPTR;
-    yytops.yylastDeleted = YY_NULLPTR;
+    yytops.clearLastDeleted();
 
     while (yyr != YY_NULLPTR)
       {
