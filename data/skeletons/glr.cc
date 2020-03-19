@@ -1046,10 +1046,6 @@ yydefaultAction (yyStateNum yystate)
 }
 
 
-static void
-yydestroyGLRState (yyStateStack& yystateStack, char const *yymsg,
-                   yyGLRState *yys]b4_user_formals[);
-
 struct yyGLRState {
   /** Type tag: always true.  */
   bool yyisState;
@@ -1377,6 +1373,40 @@ struct yyStateStack {
       }
     yyitems.erase(yyitems.begin() + yysize, yyitems.end());
   }
+
+  void
+  yydestroyGLRState (char const *yymsg,
+                     yyGLRState *yys]b4_user_formals[)
+  {
+    if (yys->yyresolved)
+      yydestruct (yymsg, yystos[yys->yylrState],
+                  &yys->yysemantics.yysval]b4_locuser_args([&yys->yyloc])[);
+    else
+      {
+#if ]b4_api_PREFIX[DEBUG
+        if (yydebug)
+          {
+            if (yys->yysemantics.yyfirstValIndex.isValid())
+              YYFPRINTF (stderr, "%s unresolved", yymsg);
+            else
+              YYFPRINTF (stderr, "%s incomplete", yymsg);
+            YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
+          }
+#endif
+
+        if (yys->yysemantics.yyfirstValIndex.isValid())
+          {
+            yySemanticOption *yyoption = &optionAt(yys->yysemantics.yyfirstValIndex);
+            yyGLRState *yyrh;
+            int yyn;
+            for (yyrh = &stateAt(yyoption->yystateIndex), yyn = yyrhsLength (yyoption->yyrule);
+                 yyn > 0;
+                 yyrh = &stateAt(yyrh->yypredIndex), yyn -= 1)
+              yydestroyGLRState (yymsg, yyrh]b4_user_args[);
+          }
+      }
+  }
+
 
   bool isSplit() const {
     return yysplitPoint.isValid();
@@ -1832,7 +1862,7 @@ struct yyGLRStack {
           }]b4_locations_if([[
         yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
         if (yys->yypredIndex.isValid())
-          yydestroyGLRState (yystateStack, "Error: popping", yys]b4_user_args[);
+          yystateStack.yydestroyGLRState ("Error: popping", yys]b4_user_args[);
         yystateStack.yytops[0] = yys->yypredIndex;
         yystateStack.pop_back();
       }
@@ -2216,7 +2246,7 @@ struct yyGLRStack {
                   yyGLRState* state = &YYSTATEAT(yystateStack.yytops[k]);]b4_locations_if([[
                     yyerror_range[1].yystate.yyloc = state->yyloc;]])[
                   if (state->yypredIndex.isValid())
-                    yydestroyGLRState (yystateStack, "Cleanup: popping", state]b4_user_args[);
+                    yystateStack.yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
                   yystateStack.yytops[k] = state->yypredIndex;
                   yystateStack.pop_back();
                 }
@@ -2353,7 +2383,7 @@ struct yyGLRStack {
     if (yyflag != yyok)
       {
         for (yyGLRState *yys = yyoptState; yynrhs > 0; yys = &YYSTATEAT(yys->yypredIndex), yynrhs -= 1)
-          yydestroyGLRState (yystateStack, "Cleanup: popping", yys]b4_user_args[);
+          yystateStack.yydestroyGLRState ("Cleanup: popping", yys]b4_user_args[);
         return yyflag;
       }
 
@@ -2538,39 +2568,6 @@ static inline int
 yyrhsLength (yyRuleNum yyrule)
 {
   return yyr2[yyrule];
-}
-
-static void
-yydestroyGLRState (yyStateStack& yystateStack, char const *yymsg,
-                   yyGLRState *yys]b4_user_formals[)
-{
-  if (yys->yyresolved)
-    yydestruct (yymsg, yystos[yys->yylrState],
-                &yys->yysemantics.yysval]b4_locuser_args([&yys->yyloc])[);
-  else
-    {
-#if ]b4_api_PREFIX[DEBUG
-      if (yydebug)
-        {
-          if (yys->yysemantics.yyfirstValIndex.isValid())
-            YYFPRINTF (stderr, "%s unresolved", yymsg);
-          else
-            YYFPRINTF (stderr, "%s incomplete", yymsg);
-          YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
-        }
-#endif
-
-      if (yys->yysemantics.yyfirstValIndex.isValid())
-        {
-          yySemanticOption *yyoption = &YYOPTIONAT(yys->yysemantics.yyfirstValIndex);
-          yyGLRState *yyrh;
-          int yyn;
-          for (yyrh = &YYSTATEAT(yyoption->yystateIndex), yyn = yyrhsLength (yyoption->yyrule);
-               yyn > 0;
-               yyrh = &YYSTATEAT(yyrh->yypredIndex), yyn -= 1)
-            yydestroyGLRState (yystateStack, yymsg, yyrh]b4_user_args[);
-        }
-    }
 }
 
 /** The action to take in YYSTATE on seeing YYTOKEN.
