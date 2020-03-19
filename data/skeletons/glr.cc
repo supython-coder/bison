@@ -1322,26 +1322,17 @@ struct yyStateStack {
  public:
   /** Initialize to a single empty stack, with total maximum
    *  capacity for all stacks of YYSIZE.  */
-  yyStateStack (size_t yysize) :
-    yyspaceLeft(yysize),
-    yyitems(new yyGLRStackItem[yysize]),
-    yysize(0)
+  yyStateStack (size_t yysize)
   {
+    yyitems.reserve(yysize);
     yysplitPoint.setInvalid();
   }
 
-  ~yyStateStack ()
-  {
-    delete[] yyitems;
-  }
-
-  size_t getSpaceLeft() const {
-    return yyspaceLeft;
+  size_t spaceLeft() const {
+    return yyitems.capacity() - yyitems.size();
   }
 
 #if YYSTACKEXPANDABLE
-# define YYRELOC(YYFROMITEMS,YYTOITEMS,YYX,YYTYPE) \
-  &((YYTOITEMS) - ((YYFROMITEMS) - (yyGLRStackItem*) (YYX)))->YYTYPE
   /** If *this is expandable, extend it.  WARNING: Pointers into the
       stack from outside should be considered invalid after this call.
       We always expand when there are 1 or fewer items left AFTER an
@@ -1350,23 +1341,10 @@ struct yyStateStack {
   bool
   yyexpandGLRStack()
   {
-    if (YYMAXDEPTH - YYHEADROOM < yysize)
+    if (YYMAXDEPTH - YYHEADROOM < yyitems.size())
       return false;
-    const size_t yynewSize = YYMAXDEPTH < 2 * yysize ? YYMAXDEPTH : 2 * yysize;
-    yyGLRStackItem* yynewItems = new yyGLRStackItem[yynewSize];
-
-    yyGLRStackItem* yyp0, *yyp1;
-    size_t yyn;
-    for (yyp0 = yyitems, yyp1 = yynewItems, yyn = yysize;
-         0 < yyn;
-         yyn -= 1, yyp0 += 1, yyp1 += 1)
-      {
-        *yyp1 = *yyp0;
-      }
-
-    delete[] yyitems;
-    yyitems = yynewItems;
-    yyspaceLeft = yynewSize - yysize;
+    const size_t yynewSize = YYMAXDEPTH < 2 * yyitems.size() ? YYMAXDEPTH : 2 * yyitems.size();
+    yyitems.reserve(yynewSize);
     return true;
   }
 #endif
@@ -1384,9 +1362,7 @@ struct yyStateStack {
          yyr = yyp, yyp = yyq, yyq = stateAt(yyp).yypredIndex)
       stateAt(yyp).yypredIndex = yyr;
 
-    yyspaceLeft += yysize;
-    yysize = yysplitPoint.get() + 1;
-    yyspaceLeft -= yysize;
+    size_t yysize = yysplitPoint.get() + 1;
     yysplitPoint.setInvalid();
     yytops.clearLastDeleted();
 
@@ -1398,8 +1374,8 @@ struct yyStateStack {
         nextFreeState.yypredIndex = yycreateStateIndex(yysize - 1);
         yytops[0] = yycreateStateIndex(yysize);
         yysize += 1;
-        yyspaceLeft -= 1;
       }
+    yyitems.erase(yyitems.begin() + yysize, yyitems.end());
   }
 
   bool isSplit() const {
@@ -1407,16 +1383,16 @@ struct yyStateStack {
   }
 
   // Present the interface of a vector of yyGLRStackItem.
-  const yyGLRStackItem* begin() const {
-    return yyitems;
+  std::vector<yyGLRStackItem>::const_iterator begin() const {
+    return yyitems.begin();
   }
 
-  const yyGLRStackItem* end() const {
-    return yyitems + yysize;
+  std::vector<yyGLRStackItem>::const_iterator end() const {
+    return yyitems.end();
   }
 
   size_t size() const {
-    return yysize;
+    return yyitems.size();
   }
 
   yyGLRStackItem& operator[](size_t i) {
@@ -1429,6 +1405,14 @@ struct yyStateStack {
 
   yyGLRState& stateAt(yyStateIndex i) {
     return operator[](i.get()).yystate;
+  }
+
+  void pop_back() {
+    yyitems.pop_back();
+  }
+
+  void pop_back(size_t n) {
+    yyitems.resize(yyitems.size() - n);
   }
 
   size_t
@@ -1474,19 +1458,16 @@ struct yyStateStack {
   inline size_t
   yynewGLRStackItem (bool yyisState)
   {
-    yyGLRStackItem* yynewItem = yyitems + yysize;
-    yyspaceLeft -= 1;
-    yysize += 1;
-    yynewItem->yystate.yyisState = yyisState;
-    return yysize - 1;
+    YYASSERT(yyitems.size() < yyitems.capacity());
+    yyitems.push_back(yyGLRStackItem());
+    yyitems.back().yystate.yyisState = yyisState;
+    return yyitems.size() - 1;
   }
 
  public:
 
   yyGLRStateSet yytops;
-  yyGLRStackItem* yyitems;
-  size_t yysize;
-  size_t yyspaceLeft;
+  std::vector<yyGLRStackItem> yyitems;
   yyStateIndex yysplitPoint;
 };
 
@@ -1523,13 +1504,13 @@ struct yyGLRStack {
 #if YYSTACKEXPANDABLE
 
   void yyreserveGlrStack() {
-    if (yystateStack.getSpaceLeft() < YYHEADROOM
+    if (yystateStack.spaceLeft() < YYHEADROOM
         && !yystateStack.yyexpandGLRStack ())
       yyMemoryExhausted();
   }
 #else
   void yyreserveGlrStack() {
-    if (yystateStack.yyspaceLeft < YYHEADROOM)
+    if (yystateStack.spaceLeft() < YYHEADROOM)
       yyMemoryExhausted();
   }
 #endif
@@ -1853,8 +1834,7 @@ struct yyGLRStack {
         if (yys->yypredIndex.isValid())
           yydestroyGLRState (yystateStack, "Error: popping", yys]b4_user_args[);
         yystateStack.yytops[0] = yys->yypredIndex;
-        yystateStack.yysize -= 1;
-        yystateStack.yyspaceLeft += 1;
+        yystateStack.pop_back();
       }
     if (!yystateStack.yytops[0].isValid())
       yyFail (YY_NULLPTR][]b4_lpure_args[);
@@ -2060,9 +2040,8 @@ struct yyGLRStack {
         /* Standard special case: single stack.  */
         yyGLRStackItem* yyrhs = &yystateStack[yystateStack.yytops[yyk].get()];
         YYASSERT (yyk == 0);
-        yystateStack.yysize -= yynrhs;
-        yystateStack.yyspaceLeft += (size_t) yynrhs;
-        yystateStack.yytops[0] = yycreateStateIndex(yystateStack.yysize - 1);
+        yystateStack.pop_back(yynrhs);
+        yystateStack.yytops[0] = yycreateStateIndex(yystateStack.size() - 1);
         YY_REDUCE_PRINT ((yystateStack, true, yyrhs, yyk, yyrule]b4_user_args[));
         return yyuserAction (yyrule, yynrhs, yyrhs,
                              yyvalp]b4_locuser_args[);
@@ -2227,7 +2206,7 @@ struct yyGLRStack {
     /* If the stack is well-formed, pop the stack until it is empty,
        destroying its entries as we go.  But free the stack regardless
        of whether it is well-formed.  */
-    if (yystateStack.yyitems != YY_NULLPTR)
+    if (!yystateStack.yyitems.empty())
       {
         for (size_t k = 0; k < yystateStack.yytops.size(); k += 1)
           if (yystateStack.yytops[k].isValid())
@@ -2239,8 +2218,7 @@ struct yyGLRStack {
                   if (state->yypredIndex.isValid())
                     yydestroyGLRState (yystateStack, "Cleanup: popping", state]b4_user_args[);
                   yystateStack.yytops[k] = state->yypredIndex;
-                  yystateStack.yysize -= 1;
-                  yystateStack.yyspaceLeft += 1;
+                  yystateStack.pop_back();
                 }
                 break;
             }
