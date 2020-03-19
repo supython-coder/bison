@@ -1225,11 +1225,6 @@ union yyGLRStackItem {
   yySemanticOption yyoption;
 };
 
-/* Do nothing if YYNORMAL or if *YYLOW <= YYLOW1.  Otherwise, fill in
- * YYVSP[YYLOW1 .. *YYLOW-1] as in yyfillin and set *YYLOW = YYLOW1.
- * For convenience, always return YYLOW1.  */
-static inline int yyfill (yyStateStack&, yyGLRStackItem *, int *, int, bool)
-     YY_ATTRIBUTE_UNUSED;
 
 static inline int
 yyrhsLength (yyRuleNum yyrule);
@@ -1254,53 +1249,7 @@ yyreportAmbiguity (yyStateStack& yystateStack, yySemanticOption* yyx0,
 static void
 yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1);
 
-static void yyfillin (yyStateStack&, yyGLRStackItem *, int, int) YY_ATTRIBUTE_UNUSED;
 
-#undef YYFILL
-#define YYFILL(N) yyfill (yystateStack, yyvsp, &yylow, (N), yynormal)
-
-#if !]b4_api_PREFIX[DEBUG
-# define YY_REDUCE_PRINT(Args)
-#else
-# define YY_REDUCE_PRINT(Args)          \
-  do {                                  \
-    if (yydebug)                        \
-      yy_reduce_print Args;             \
-  } while (0)
-
-/*----------------------------------------------------------------------.
-| Report that stack #YYK of *YYSTACKP is going to be reduced by YYRULE. |
-`----------------------------------------------------------------------*/
-
-static inline void
-yy_reduce_print (yyStateStack& yystateStack, bool yynormal, yyGLRStackItem* yyvsp, size_t yyk,
-                 yyRuleNum yyrule]b4_user_formals[)
-{
-  int yynrhs = yyrhsLength (yyrule);]b4_locations_if([
-  int yylow = 1;])[
-  int yyi;
-  YYFPRINTF (stderr, "Reducing stack %lu by rule %d (line %lu):\n",
-             (unsigned long) yyk, yyrule - 1,
-             (unsigned long) yyrline[yyrule]);
-  if (! yynormal)
-    yyfillin (yystateStack, yyvsp, 1, -yynrhs);
-  /* The symbols being reduced.  */
-  for (yyi = 0; yyi < yynrhs; yyi++)
-    {
-      YYFPRINTF (stderr, "   $%d = ", yyi + 1);
-      yy_symbol_print (stderr,
-                       yystos[yyvsp[yyi - yynrhs + 1].yystate.yylrState],
-                       &yyvsp[yyi - yynrhs + 1].yystate.yysemantics.yysval]b4_locations_if([,
-                       &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
-                       b4_user_args[);
-      if (!yyvsp[yyi - yynrhs + 1].yystate.yyresolved)
-        YYFPRINTF (stderr, " (unresolved)");
-      YYFPRINTF (stderr, "\n");
-    }
-}
-
-#endif
-#
 /** Left-hand-side symbol for rule #YYRULE.  */
 static inline yySymbol
 yylhsNonterm (yyRuleNum yyrule)
@@ -1313,6 +1262,9 @@ yyLRgotoState (yyStateNum yystate, yySymbol yysym);
 
 static void
 yypstates (yyStateStack& yystateStack, yyStateIndex yyst);
+
+#undef YYFILL
+#define YYFILL(N) yyfill (yyvsp, &yylow, (N), yynormal)
 
 struct yyStateStack {
  public:
@@ -1480,6 +1432,89 @@ struct yyStateStack {
     return yycreateOptionIndex(yynewGLRStackItem(false));
   }
 
+  /* Do nothing if YYNORMAL or if *YYLOW <= YYLOW1.  Otherwise, fill in
+   * YYVSP[YYLOW1 .. *YYLOW-1] as in yyfillin and set *YYLOW = YYLOW1.
+   * For convenience, always return YYLOW1.  */
+  inline int
+  yyfill (yyGLRStackItem *yyvsp, int *yylow, int yylow1, bool yynormal)
+  {
+    if (!yynormal && yylow1 < *yylow)
+      {
+        yyfillin (yyvsp, *yylow, yylow1);
+        *yylow = yylow1;
+      }
+    return yylow1;
+  }
+
+  /** Fill in YYVSP[YYLOW1 .. YYLOW0-1] from the chain of states starting
+   *  at YYVSP[YYLOW0].yystate.yypredIndex.  Leaves YYVSP[YYLOW1].yystate.yypred
+   *  containing the pointer to the next state in the chain.  */
+  void
+  yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
+  {
+    int i;
+    yyGLRState *s = &stateAt(yyvsp[yylow0].yystate.yypredIndex);
+    for (i = yylow0-1; i >= yylow1; i -= 1)
+      {
+#if ]b4_api_PREFIX[DEBUG
+        yyvsp[i].yystate.yylrState = s->yylrState;
+#endif
+        yyvsp[i].yystate.yyresolved = s->yyresolved;
+        if (s->yyresolved)
+          yyvsp[i].yystate.yysemantics.yysval = s->yysemantics.yysval;
+        else
+          /* The effect of using yysval or yyloc (in an immediate rule) is
+           * undefined.  */
+          yyvsp[i].yystate.yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
+        yyvsp[i].yystate.yyloc = s->yyloc;]])[
+        yyvsp[i].yystate.yypredIndex = s->yypredIndex;
+        s = &stateAt(s->yypredIndex);
+      }
+  }
+
+#if !]b4_api_PREFIX[DEBUG
+# define YY_REDUCE_PRINT(Args)
+#else
+# define YY_REDUCE_PRINT(Args)          \
+  do {                                  \
+    if (yydebug)                        \
+      yystateStack.yy_reduce_print Args;             \
+  } while (0)
+
+  /*----------------------------------------------------------------------.
+  | Report that stack #YYK of *YYSTACKP is going to be reduced by YYRULE. |
+  `----------------------------------------------------------------------*/
+
+  inline void
+  yy_reduce_print (bool yynormal, yyGLRStackItem* yyvsp, size_t yyk,
+                   yyRuleNum yyrule]b4_user_formals[)
+  {
+    int yynrhs = yyrhsLength (yyrule);]b4_locations_if([
+    int yylow = 1;])[
+    int yyi;
+    YYFPRINTF (stderr, "Reducing stack %lu by rule %d (line %lu):\n",
+               (unsigned long) yyk, yyrule - 1,
+               (unsigned long) yyrline[yyrule]);
+    if (! yynormal)
+      yyfillin (yyvsp, 1, -yynrhs);
+    /* The symbols being reduced.  */
+    for (yyi = 0; yyi < yynrhs; yyi++)
+      {
+        YYFPRINTF (stderr, "   $%d = ", yyi + 1);
+        yy_symbol_print (stderr,
+                         yystos[yyvsp[yyi - yynrhs + 1].yystate.yylrState],
+                         &yyvsp[yyi - yynrhs + 1].yystate.yysemantics.yysval]b4_locations_if([,
+                         &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
+                         b4_user_args[);
+        if (!yyvsp[yyi - yynrhs + 1].yystate.yyresolved)
+          YYFPRINTF (stderr, " (unresolved)");
+        YYFPRINTF (stderr, "\n");
+      }
+  }
+
+#endif
+
+
  private:
   /** Return a fresh GLRStackItem in this.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
@@ -1500,6 +1535,9 @@ struct yyStateStack {
   std::vector<yyGLRStackItem> yyitems;
   yyStateIndex yysplitPoint;
 };
+
+#undef YYFILL
+#define YYFILL(N) yystateStack.yyfill (yyvsp, &yylow, (N), yynormal)
 
 #define yystackp this
 struct yyGLRStack {
@@ -2072,7 +2110,7 @@ struct yyGLRStack {
         YYASSERT (yyk == 0);
         yystateStack.pop_back(yynrhs);
         yystateStack.yytops[0] = yycreateStateIndex(yystateStack.size() - 1);
-        YY_REDUCE_PRINT ((yystateStack, true, yyrhs, yyk, yyrule]b4_user_args[));
+        YY_REDUCE_PRINT ((true, yyrhs, yyk, yyrule]b4_user_args[));
         return yyuserAction (yyrule, yynrhs, yyrhs,
                              yyvalp]b4_locuser_args[);
       }
@@ -2092,7 +2130,7 @@ struct yyGLRStack {
           }
         yystateStack.yyupdateSplit (yys);
         yystateStack.yytops[yyk] = yys;
-        YY_REDUCE_PRINT ((yystateStack, false, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1, yyk, yyrule]b4_user_args[));
+        YY_REDUCE_PRINT ((false, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1, yyk, yyrule]b4_user_args[));
         return yyuserAction (yyrule, yynrhs, yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
                              yyvalp]b4_locuser_args[);
       }
@@ -2469,32 +2507,6 @@ yytokenName (yySymbol yytoken)
 }
 #endif
 
-/** Fill in YYVSP[YYLOW1 .. YYLOW0-1] from the chain of states starting
- *  at YYVSP[YYLOW0].yystate.yypredIndex.  Leaves YYVSP[YYLOW1].yystate.yypred
- *  containing the pointer to the next state in the chain.  */
-static void
-yyfillin (yyStateStack& yystateStack, yyGLRStackItem *yyvsp, int yylow0, int yylow1)
-{
-  int i;
-  yyGLRState *s = &YYSTATEAT(yyvsp[yylow0].yystate.yypredIndex);
-  for (i = yylow0-1; i >= yylow1; i -= 1)
-    {
-#if ]b4_api_PREFIX[DEBUG
-      yyvsp[i].yystate.yylrState = s->yylrState;
-#endif
-      yyvsp[i].yystate.yyresolved = s->yyresolved;
-      if (s->yyresolved)
-        yyvsp[i].yystate.yysemantics.yysval = s->yysemantics.yysval;
-      else
-        /* The effect of using yysval or yyloc (in an immediate rule) is
-         * undefined.  */
-        yyvsp[i].yystate.yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
-      yyvsp[i].yystate.yyloc = s->yyloc;]])[
-      yyvsp[i].yystate.yypredIndex = s->yypredIndex;
-      s = &YYSTATEAT(s->yypredIndex);
-    }
-}
-
 /** If yychar is empty, fetch the next token.  */
 static inline yySymbol
 yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[)
@@ -2536,16 +2548,6 @@ yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals
   return yytoken;
 }
 
-static inline int
-yyfill (yyStateStack& yystateStack, yyGLRStackItem *yyvsp, int *yylow, int yylow1, bool yynormal)
-{
-  if (!yynormal && yylow1 < *yylow)
-    {
-      yyfillin (yystateStack, yyvsp, *yylow, yylow1);
-      *yylow = yylow1;
-    }
-  return yylow1;
-}
 
 
 static void
