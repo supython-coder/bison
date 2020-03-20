@@ -1229,16 +1229,6 @@ union yyGLRStackItem {
 static inline int
 yyrhsLength (yyRuleNum yyrule);
 
-static bool
-yyidenticalOptions (yyStateStack& yystateStack,
-                    yySemanticOption* yyy0,
-                    yySemanticOption* yyy1);
-
-static void
-yymergeOptionSets (yyStateStack& yystateStack,
-                   yySemanticOption* yyy0,
-                   yySemanticOption* yyy1);
-
 static int
 yypreference (yySemanticOption* y0, yySemanticOption* y1);
 
@@ -1514,6 +1504,82 @@ struct yyStateStack {
 
 #endif
 
+  /** True iff YYY0 and YYY1 represent identical options at the top level.
+   *  That is, they represent the same rule applied to RHS symbols
+   *  that produce the same terminal symbols.  */
+  bool
+  yyidenticalOptions (yySemanticOption* yyy0, yySemanticOption* yyy1)
+  {
+    if (yyy0->yyrule == yyy1->yyrule)
+      {
+        yyGLRState *yys0, *yys1;
+        int yyn;
+        for (yys0 = &stateAt(yyy0->yystateIndex),
+             yys1 = &stateAt(yyy1->yystateIndex),
+             yyn = yyrhsLength (yyy0->yyrule);
+             yyn > 0;
+             yys0 = &stateAt(yys0->yypredIndex),
+             yys1 = &stateAt(yys1->yypredIndex), yyn -= 1)
+          if (yys0->yyposn != yys1->yyposn)
+            return false;
+        return true;
+      }
+    else
+      return false;
+  }
+
+  /** Assuming identicalOptions (YYY0,YYY1), destructively merge the
+   *  alternative semantic values for the RHS-symbols of YYY1 and YYY0.  */
+  void
+  yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
+  {
+    yyGLRState *yys0, *yys1;
+    int yyn;
+    for (yys0 = &stateAt(yyy0->yystateIndex),
+         yys1 = &stateAt(yyy1->yystateIndex),
+         yyn = yyrhsLength (yyy0->yyrule);
+         yyn > 0;
+         yys0 = &stateAt(yys0->yypredIndex),
+         yys1 = &stateAt(yys1->yypredIndex), yyn -= 1)
+      {
+        if (yys0 == yys1)
+          break;
+        else if (yys0->yyresolved)
+          {
+            yys1->yyresolved = true;
+            yys1->yysemantics.yysval = yys0->yysemantics.yysval;
+          }
+        else if (yys1->yyresolved)
+          {
+            yys0->yyresolved = true;
+            yys0->yysemantics.yysval = yys1->yysemantics.yysval;
+          }
+        else
+          {
+            yySemanticOptionIndex* yyz0p = &yys0->yysemantics.yyfirstValIndex;
+            yySemanticOptionIndex yyz1 = yys1->yysemantics.yyfirstValIndex;
+            while (true)
+              {
+                if (yyz1 == *yyz0p || !yyz1.isValid())
+                  break;
+                else if (!yyz0p->isValid())
+                  {
+                    *yyz0p = yyz1;
+                    break;
+                  }
+                else if (*yyz0p < yyz1)
+                  {
+                    yySemanticOptionIndex yyz = *yyz0p;
+                    *yyz0p = yyz1;
+                    yyz1 = optionAt(yyz1).yynextIndex;
+                    optionAt(*yyz0p).yynextIndex = yyz;
+                  }
+                yyz0p = &optionAt(*yyz0p).yynextIndex;
+              }
+            yys1->yysemantics.yyfirstValIndex = yys0->yysemantics.yyfirstValIndex;
+          }
+      }
+  }
 
  private:
   /** Return a fresh GLRStackItem in this.  The item is an LR state
@@ -2333,9 +2399,9 @@ struct yyGLRStack {
         yySemanticOption* const yyp = &YYOPTIONAT(*yyindex);
         yySemanticOption* const yybest = &YYOPTIONAT(yybestIndex);
 
-        if (yyidenticalOptions (yystateStack, yybest, yyp))
+        if (yystateStack.yyidenticalOptions (yybest, yyp))
           {
-            yymergeOptionSets (yystateStack, yybest, yyp);
+            yystateStack.yymergeOptionSets (yybest, yyp);
             *yyindex = yyp->yynextIndex;
           }
         else
@@ -2617,88 +2683,6 @@ yyLRgotoState (yyStateNum yystate, yySymbol yysym)
 }
 
                                 /* GLRStacks */
-
-
-/** True iff YYY0 and YYY1 represent identical options at the top level.
- *  That is, they represent the same rule applied to RHS symbols
- *  that produce the same terminal symbols.  */
-static bool
-yyidenticalOptions (yyStateStack& yystateStack,
-                    yySemanticOption* yyy0,
-                    yySemanticOption* yyy1)
-{
-  if (yyy0->yyrule == yyy1->yyrule)
-    {
-      yyGLRState *yys0, *yys1;
-      int yyn;
-      for (yys0 = &YYSTATEAT(yyy0->yystateIndex),
-           yys1 = &YYSTATEAT(yyy1->yystateIndex),
-           yyn = yyrhsLength (yyy0->yyrule);
-           yyn > 0;
-           yys0 = &YYSTATEAT(yys0->yypredIndex),
-           yys1 = &YYSTATEAT(yys1->yypredIndex), yyn -= 1)
-        if (yys0->yyposn != yys1->yyposn)
-          return false;
-      return true;
-    }
-  else
-    return false;
-}
-
-/** Assuming identicalOptions (YYY0,YYY1), destructively merge the
- *  alternative semantic values for the RHS-symbols of YYY1 and YYY0.  */
-static void
-yymergeOptionSets (yyStateStack& yystateStack,
-                   yySemanticOption* yyy0,
-                   yySemanticOption* yyy1)
-{
-  yyGLRState *yys0, *yys1;
-  int yyn;
-  for (yys0 = &YYSTATEAT(yyy0->yystateIndex),
-       yys1 = &YYSTATEAT(yyy1->yystateIndex),
-       yyn = yyrhsLength (yyy0->yyrule);
-       yyn > 0;
-       yys0 = &YYSTATEAT(yys0->yypredIndex),
-       yys1 = &YYSTATEAT(yys1->yypredIndex), yyn -= 1)
-    {
-      if (yys0 == yys1)
-        break;
-      else if (yys0->yyresolved)
-        {
-          yys1->yyresolved = true;
-          yys1->yysemantics.yysval = yys0->yysemantics.yysval;
-        }
-      else if (yys1->yyresolved)
-        {
-          yys0->yyresolved = true;
-          yys0->yysemantics.yysval = yys1->yysemantics.yysval;
-        }
-      else
-        {
-          yySemanticOptionIndex* yyz0p = &yys0->yysemantics.yyfirstValIndex;
-          yySemanticOptionIndex yyz1 = yys1->yysemantics.yyfirstValIndex;
-          while (true)
-            {
-              if (yyz1 == *yyz0p || !yyz1.isValid())
-                break;
-              else if (!yyz0p->isValid())
-                {
-                  *yyz0p = yyz1;
-                  break;
-                }
-              else if (*yyz0p < yyz1)
-                {
-                  yySemanticOptionIndex yyz = *yyz0p;
-                  *yyz0p = yyz1;
-                  yyz1 = YYOPTIONAT(yyz1).yynextIndex;
-                  YYOPTIONAT(*yyz0p).yynextIndex = yyz;
-                }
-              yyz0p = &YYOPTIONAT(*yyz0p).yynextIndex;
-            }
-          yys1->yysemantics.yyfirstValIndex = yys0->yysemantics.yyfirstValIndex;
-        }
-    }
-}
 
 /** Y0 and Y1 represent two possible actions to take in a given
  *  parsing state; return 0 if no combination is possible,
