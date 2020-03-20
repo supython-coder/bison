@@ -1333,7 +1333,7 @@ struct yyStateStack {
             int yyn;
             for (yyrh = &stateAt(yyoption->yystateIndex), yyn = yyrhsLength (yyoption->yyrule);
                  yyn > 0;
-                 yyrh = &stateAt(yyrh->yypredIndex), yyn -= 1)
+                 yyrh = predState(yyrh), yyn -= 1)
               yydestroyGLRState (yymsg, yyrh]b4_user_args[);
           }
       }
@@ -1362,11 +1362,17 @@ struct yyStateStack {
   }
 
   yySemanticOption& optionAt(yySemanticOptionIndex i) {
+    YYASSERT(i.isValid());
     return operator[](i.get()).yyoption;
   }
 
   yyGLRState& stateAt(yyStateIndex i) {
+    YYASSERT(i.isValid());
     return operator[](i.get()).yystate;
+  }
+
+  yyGLRState* predState(yyGLRState* s) {
+    return &stateAt(s->yypredIndex);
   }
 
   void pop_back() {
@@ -1448,7 +1454,7 @@ struct yyStateStack {
           yyvsp[i].yystate.yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
         yyvsp[i].yystate.yyloc = s->yyloc;]])[
         yyvsp[i].yystate.yypredIndex = s->yypredIndex;
-        s = &stateAt(s->yypredIndex);
+        s = predState(s);
       }
   }
 
@@ -1508,8 +1514,8 @@ struct yyStateStack {
              yys1 = &stateAt(yyy1->yystateIndex),
              yyn = yyrhsLength (yyy0->yyrule);
              yyn > 0;
-             yys0 = &stateAt(yys0->yypredIndex),
-             yys1 = &stateAt(yys1->yypredIndex), yyn -= 1)
+             yys0 = predState(yys0),
+             yys1 = predState(yys1), yyn -= 1)
           if (yys0->yyposn != yys1->yyposn)
             return false;
         return true;
@@ -1529,8 +1535,8 @@ struct yyStateStack {
          yys1 = &stateAt(yyy1->yystateIndex),
          yyn = yyrhsLength (yyy0->yyrule);
          yyn > 0;
-         yys0 = &stateAt(yys0->yypredIndex),
-         yys1 = &stateAt(yys1->yypredIndex), yyn -= 1)
+         yys0 = predState(yys0),
+         yys1 = predState(yys1), yyn -= 1)
       {
         if (yys0 == yys1)
           break;
@@ -1598,7 +1604,7 @@ struct yyStateStack {
   {
     if (yys->yypredIndex.isValid())
       {
-        yy_yypstack (&stateAt(yys->yypredIndex));
+        yy_yypstack (predState(yys));
         YYFPRINTF (stderr, " -> ");
       }
     YYFPRINTF (stderr, "%d@@%lu", yys->yylrState,
@@ -2433,6 +2439,10 @@ struct yyGLRStack {
     return stateAt(yystateStack.yytops[i]);
   }
 
+  yyGLRState* predState(yyGLRState* s) {
+    return yystateStack.predState(s);
+  }
+
  private:
 
   void popall() {
@@ -2469,7 +2479,7 @@ struct yyGLRStack {
     if (0 < yyn)
       {
         YYASSERT (yys->yypredIndex.isValid());
-        YYCHK (yyresolveStates (&stateAt(yys->yypredIndex), yyn-1]b4_user_args[));
+        YYCHK (yyresolveStates (predState(yys), yyn-1]b4_user_args[));
         if (! yys->yyresolved)
           YYCHK (yyresolveValue (yys]b4_user_args[));
       }
@@ -2585,7 +2595,7 @@ struct yyGLRStack {
       yyresolveStates (yyoptState, yynrhs]b4_user_args[);
     if (yyflag != yyok)
       {
-        for (yyGLRState *yys = yyoptState; yynrhs > 0; yys = &stateAt(yys->yypredIndex), yynrhs -= 1)
+        for (yyGLRState *yys = yyoptState; yynrhs > 0; yys = predState(yys), yynrhs -= 1)
           yystateStack.yydestroyGLRState ("Cleanup: popping", yys]b4_user_args[);
         return yyflag;
       }
@@ -2618,7 +2628,7 @@ struct yyGLRStack {
   {
     if (0 < yyn1)
       {
-        yyresolveLocations (&stateAt(yys1->yypredIndex), yyn1 - 1]b4_user_args[);
+        yyresolveLocations (predState(yys1), yyn1 - 1]b4_user_args[);
         if (!yys1->yyresolved)
           {
             yyGLRStackItem yyrhsloc[1 + YYMAXRHS];
@@ -2634,7 +2644,7 @@ struct yyGLRStack {
                 yyresolveLocations (&stateAt(yyoption->yystateIndex), yynrhs]b4_user_args[);
                 for (yys = &stateAt(yyoption->yystateIndex), yyn = yynrhs;
                      yyn > 0;
-                     yys = &stateAt(yys->yypredIndex), yyn -= 1)
+                     yys = predState(yys), yyn -= 1)
                   yyrhsloc[yyn].yystate.yyloc = yys->yyloc;
               }
             else
