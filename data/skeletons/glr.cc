@@ -1232,10 +1232,6 @@ yyrhsLength (yyRuleNum yyrule);
 static int
 yypreference (yySemanticOption* y0, yySemanticOption* y1);
 
-static YYRESULTTAG
-yyreportAmbiguity (yyStateStack& yystateStack, yySemanticOption* yyx0,
-                   yySemanticOption* yyx1]b4_pure_formals[);
-
 static void
 yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1);
 
@@ -1581,6 +1577,28 @@ struct yyStateStack {
       }
   }
 
+  YYRESULTTAG
+  yyreportAmbiguity (yySemanticOption* yyx0,
+                     yySemanticOption* yyx1]b4_pure_formals[)
+  {
+    YYUSE (yyx0);
+    YYUSE (yyx1);
+
+#if ]b4_api_PREFIX[DEBUG
+    YYFPRINTF (stderr, "Ambiguity detected.\n");
+    YYFPRINTF (stderr, "Option 1,\n");
+    yyreportTree (yyx0, 2);
+    YYFPRINTF (stderr, "\nOption 2,\n");
+    yyreportTree (yyx1, 2);
+    YYFPRINTF (stderr, "\n");
+#endif
+
+    yyerror (]b4_yyerror_args[YY_("syntax is ambiguous"));
+    return yyabort;
+  }
+
+
+
  private:
   /** Return a fresh GLRStackItem in this.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
@@ -1594,6 +1612,56 @@ struct yyStateStack {
     yyitems.back().yystate.yyisState = yyisState;
     return yyitems.size() - 1;
   }
+
+
+#if ]b4_api_PREFIX[DEBUG
+  void
+  yyreportTree (yySemanticOption* yyx, int yyindent)
+  {
+    int yynrhs = yyrhsLength (yyx->yyrule);
+    int yyi;
+    yyStateIndex yys;
+    yyGLRState* yystates[1 + YYMAXRHS];
+    yyGLRState yyleftmost_state;
+
+    for (yyi = yynrhs, yys = yyx->yystateIndex; 0 < yyi; yyi -= 1, yys = stateAt(yys).yypredIndex)
+      yystates[yyi] = &stateAt(yys);
+    if (!yys.isValid())
+      {
+        yyleftmost_state.yyposn = 0;
+        yystates[0] = &yyleftmost_state;
+      }
+    else
+      yystates[0] = &stateAt(yys);
+
+    if (stateAt(yyx->yystateIndex).yyposn < yystates[0]->yyposn + 1)
+      YYFPRINTF (stderr, "%*s%s -> <Rule %d, empty>\n",
+                 yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
+                 yyx->yyrule - 1);
+    else
+      YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %lu .. %lu>\n",
+                 yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
+                 yyx->yyrule - 1, (unsigned long) (yystates[0]->yyposn + 1),
+                 (unsigned long) stateAt(yyx->yystateIndex).yyposn);
+    for (yyi = 1; yyi <= yynrhs; yyi += 1)
+      {
+        if (yystates[yyi]->yyresolved)
+          {
+            if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
+              YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
+                         yytokenName (yystos[yystates[yyi]->yylrState]));
+            else
+              YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
+                         yytokenName (yystos[yystates[yyi]->yylrState]),
+                         (unsigned long) (yystates[yyi-1]->yyposn + 1),
+                         (unsigned long) yystates[yyi]->yyposn);
+          }
+        else
+          yyreportTree (&optionAt(yystates[yyi]->yysemantics.yyfirstValIndex),
+                        yyindent+2);
+      }
+  }
+#endif
 
  public:
 
@@ -2410,7 +2478,7 @@ struct yyGLRStack {
               {
               case 0:]b4_locations_if([[
                 yyresolveLocations (yys, 1]b4_user_args[);]])[
-                return yyreportAmbiguity (yystateStack, yybest, yyp]b4_pure_args[);
+                return yystateStack.yyreportAmbiguity (yybest, yyp]b4_pure_args[);
                 break;
               case 1:
                 yymerge = true;
@@ -2708,77 +2776,6 @@ yypreference (yySemanticOption* y0, yySemanticOption* y1)
     return 2;
   return 0;
 }
-
-#if ]b4_api_PREFIX[DEBUG
-static void
-yyreportTree (yyStateStack& yystateStack, yySemanticOption* yyx, int yyindent)
-{
-  int yynrhs = yyrhsLength (yyx->yyrule);
-  int yyi;
-  yyStateIndex yys;
-  yyGLRState* yystates[1 + YYMAXRHS];
-  yyGLRState yyleftmost_state;
-
-  for (yyi = yynrhs, yys = yyx->yystateIndex; 0 < yyi; yyi -= 1, yys = YYSTATEAT(yys).yypredIndex)
-    yystates[yyi] = &YYSTATEAT(yys);
-  if (!yys.isValid())
-    {
-      yyleftmost_state.yyposn = 0;
-      yystates[0] = &yyleftmost_state;
-    }
-  else
-    yystates[0] = &YYSTATEAT(yys);
-
-  if (YYSTATEAT(yyx->yystateIndex).yyposn < yystates[0]->yyposn + 1)
-    YYFPRINTF (stderr, "%*s%s -> <Rule %d, empty>\n",
-               yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
-               yyx->yyrule - 1);
-  else
-    YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %lu .. %lu>\n",
-               yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
-               yyx->yyrule - 1, (unsigned long) (yystates[0]->yyposn + 1),
-               (unsigned long) YYSTATEAT(yyx->yystateIndex).yyposn);
-  for (yyi = 1; yyi <= yynrhs; yyi += 1)
-    {
-      if (yystates[yyi]->yyresolved)
-        {
-          if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
-            YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                       yytokenName (yystos[yystates[yyi]->yylrState]));
-          else
-            YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
-                       yytokenName (yystos[yystates[yyi]->yylrState]),
-                       (unsigned long) (yystates[yyi-1]->yyposn + 1),
-                       (unsigned long) yystates[yyi]->yyposn);
-        }
-      else
-        yyreportTree (yystateStack,
-                      &YYOPTIONAT(yystates[yyi]->yysemantics.yyfirstValIndex),
-                      yyindent+2);
-    }
-}
-#endif
-
-static YYRESULTTAG
-yyreportAmbiguity (yyStateStack& yystateStack, yySemanticOption* yyx0,
-                   yySemanticOption* yyx1]b4_pure_formals[)
-{
-  YYUSE (yyx0);
-  YYUSE (yyx1);
-
-#if ]b4_api_PREFIX[DEBUG
-  YYFPRINTF (stderr, "Ambiguity detected.\n");
-  YYFPRINTF (stderr, "Option 1,\n");
-  yyreportTree (yystateStack, yyx0, 2);
-  YYFPRINTF (stderr, "\nOption 2,\n");
-  yyreportTree (yystateStack, yyx1, 2);
-  YYFPRINTF (stderr, "\n");
-#endif
-
-  yyerror (]b4_yyerror_args[YY_("syntax is ambiguous"));
-  return yyabort;
-}
-
 
 #define YYCHK1(YYE)                                                          \
   do {                                                                       \
