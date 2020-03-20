@@ -1246,9 +1246,6 @@ yylhsNonterm (yyRuleNum yyrule)
 static inline yyStateNum
 yyLRgotoState (yyStateNum yystate, yySymbol yysym);
 
-static void
-yypstates (yyStateStack& yystateStack, yyStateIndex yyst);
-
 #undef YYFILL
 #define YYFILL(N) yyfill (yyvsp, &yylow, (N), yynormal)
 
@@ -1597,7 +1594,30 @@ struct yyStateStack {
     return yyabort;
   }
 
+  /* DEBUGGING ONLY */
+#if ]b4_api_PREFIX[DEBUG
+  void
+  yy_yypstack (yyGLRState* yys)
+  {
+    if (yys->yypredIndex.isValid())
+      {
+        yy_yypstack (&stateAt(yys->yypredIndex));
+        YYFPRINTF (stderr, " -> ");
+      }
+    YYFPRINTF (stderr, "%d@@%lu", yys->yylrState,
+               (unsigned long) yys->yyposn);
+  }
 
+  void
+  yypstates (yyStateIndex yyst)
+  {
+    if (yyst.isValid())
+      yy_yypstack (&stateAt(yyst));
+    else
+      YYFPRINTF (stderr, "<null>");
+    YYFPRINTF (stderr, "\n");
+  }
+#endif
 
  private:
   /** Return a fresh GLRStackItem in this.  The item is an LR state
@@ -2396,11 +2416,13 @@ struct yyGLRStack {
     yyreserveGlrStack();
   }
 
+#if ]b4_api_PREFIX[DEBUG
   void
   yypstack (size_t yyk)
   {
-    yypstates (yystateStack, yystateStack.yytops[yyk]);
+    yystateStack.yypstates (yystateStack.yytops[yyk]);
   }
+#endif
 
  private:
 
@@ -2982,28 +3004,6 @@ b4_dollar_popdef])[]dnl
 
 /* DEBUGGING ONLY */
 #if ]b4_api_PREFIX[DEBUG
-static void
-yy_yypstack (yyStateStack& yystateStack, yyGLRState* yys)
-{
-  if (yys->yypredIndex.isValid())
-    {
-      yy_yypstack (yystateStack, &YYSTATEAT(yys->yypredIndex));
-      YYFPRINTF (stderr, " -> ");
-    }
-  YYFPRINTF (stderr, "%d@@%lu", yys->yylrState,
-             (unsigned long) yys->yyposn);
-}
-
-static void
-yypstates (yyStateStack& yystateStack, yyStateIndex yyst)
-{
-  if (yyst.isValid())
-    yy_yypstack (yystateStack, &YYSTATEAT(yyst));
-  else
-    YYFPRINTF (stderr, "<null>");
-  YYFPRINTF (stderr, "\n");
-}
-
 static void
 yypstack (yyGLRStack* yystackp, size_t yyk)
 {
