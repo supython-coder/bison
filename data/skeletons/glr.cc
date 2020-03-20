@@ -1256,11 +1256,14 @@ struct yyStateStack {
     yysplitPoint.setInvalid();
   }
 
-  size_t spaceLeft() const {
-    return yyitems.capacity() - yyitems.size();
+#if YYSTACKEXPANDABLE
+  /** Returns false if it tried to expand but could not. */
+  bool
+  yyexpandGLRStackIfNeeded() {
+    return spaceLeft() < YYHEADROOM && yyexpandGLRStack();
   }
 
-#if YYSTACKEXPANDABLE
+ private:
   /** If *this is expandable, extend it.  WARNING: Pointers into the
       stack from outside should be considered invalid after this call.
       We always expand when there are 1 or fewer items left AFTER an
@@ -1274,6 +1277,11 @@ struct yyStateStack {
     const size_t yynewSize = YYMAXDEPTH < 2 * yyitems.size() ? YYMAXDEPTH : 2 * yyitems.size();
     yyitems.reserve(yynewSize);
     return true;
+  }
+ public:
+#else
+  bool yyexpandGLRStackIfNeeded() {
+    return yystateStack.spaceLeft() < YYHEADROOM;
   }
 #endif
 
@@ -1623,6 +1631,10 @@ struct yyStateStack {
 #endif
 
  private:
+  size_t spaceLeft() const {
+    return yyitems.capacity() - yyitems.size();
+  }
+
   /** Return a fresh GLRStackItem in this.  The item is an LR state
    *  if YYISSTATE, and otherwise a semantic option.  Callers should call
    *  yyreserveStack afterwards to make sure there is sufficient
@@ -1726,19 +1738,11 @@ struct yyGLRStack {
   YYLTYPE yyloc;]])[
 ])[
   YYJMP_BUF yyexception_buffer;
-#if YYSTACKEXPANDABLE
 
   void yyreserveGlrStack() {
-    if (yystateStack.spaceLeft() < YYHEADROOM
-        && !yystateStack.yyexpandGLRStack ())
+    if (yystateStack.yyexpandGLRStackIfNeeded ())
       yyMemoryExhausted();
   }
-#else
-  void yyreserveGlrStack() {
-    if (yystateStack.spaceLeft() < YYHEADROOM)
-      yyMemoryExhausted();
-  }
-#endif
 
   _Noreturn void
   yyMemoryExhausted ()
@@ -2161,7 +2165,7 @@ struct yyGLRStack {
   }
 
   /** Perform user action for rule number YYN, with RHS length YYRHSLEN,
-   *  and top stack item YYVSP.  YYLVALP points to place to put semantic
+   *  and top stack item YYVSP.  YYVALP points to place to put semantic
    *  value ($$), and yylocp points to place for location information
    *  (@@$).  Returns yyok for normal return, yyaccept for YYACCEPT,
    *  yyerr for YYERROR, yyabort for YYABORT.  */
@@ -2169,7 +2173,7 @@ struct yyGLRStack {
   yyuserAction (yyRuleNum yyn, int yyrhslen, yyGLRStackItem* yyvsp,
                 YYSTYPE* yyvalp]b4_locuser_formals[)
   {
-    bool yynormal YY_ATTRIBUTE_UNUSED = (!yystateStack.isSplit());
+    bool yynormal YY_ATTRIBUTE_UNUSED = !yystateStack.isSplit();
     int yylow;
   ]b4_parse_param_use([yyvalp], [yylocp])dnl
   [  YYUSE (yyrhslen);
