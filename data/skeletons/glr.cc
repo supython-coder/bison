@@ -1871,7 +1871,7 @@ struct yyGLRStack {
     */
     if (yytoken != YYEMPTY)
       {
-        int yyn = yypact[stateAt(yystateStack.yytops[0]).yylrState];
+        int yyn = yypact[topState(0).yylrState];
         yyarg[yycount++] = yytokenName (yytoken);
         if (!yypact_value_is_default (yyn))
           {
@@ -1984,7 +1984,7 @@ struct yyGLRStack {
             {]b4_locations_if([[
               /* We throw away the lookahead, but the error range
                  of the shifted error token must take it into account.  */
-              yyGLRState *yys = &stateAt(yystateStack.yytops[0]);
+              yyGLRState *yys = &topState(0);
               yyGLRStackItem yyerror_range[3];
               yyerror_range[1].yystate.yyloc = yys->yyloc;
               yyerror_range[2].yystate.yyloc = yylloc;
@@ -1995,13 +1995,13 @@ struct yyGLRStack {
               yychar = YYEMPTY;
             }
           yytoken = ]b4_yygetToken_call[;
-          yyj = yypact[stateAt(yystateStack.yytops[0]).yylrState];
+          yyj = yypact[topState(0).yylrState];
           if (yypact_value_is_default (yyj))
             return;
           yyj += yytoken;
           if (yyj < 0 || YYLAST < yyj || yycheck[yyj] != yytoken)
             {
-              if (yydefact[stateAt(yystateStack.yytops[0]).yylrState] != 0)
+              if (yydefact[topState(0).yylrState] != 0)
                 return;
             }
           else if (! yytable_value_is_error (yytable[yyj]))
@@ -2028,7 +2028,7 @@ struct yyGLRStack {
     yyerrState = 3;
     while (yystateStack.yytops[0].isValid())
       {
-        yyGLRState *yys = &stateAt(yystateStack.yytops[0]);
+        yyGLRState *yys = &topState(0);
         int yyj = yypact[yys->yylrState];
         if (! yypact_value_is_default (yyj))
           {
@@ -2045,7 +2045,7 @@ struct yyGLRStack {
                                  &yylval, &yyerrloc);
                 yyglrShift (0, yytable[yyj],
                             yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
-                yys = &stateAt(yystateStack.yytops[0]);
+                yys = &topState(0);
                 break;
               }
           }]b4_locations_if([[
@@ -2065,7 +2065,7 @@ struct yyGLRStack {
   {
     while (yystateStack.yytops[yyk].isValid())
       {
-        yyStateNum yystate = stateAt(yystateStack.yytops[yyk]).yylrState;
+        yyStateNum yystate = topState(yyk).yylrState;
         YYDPRINTF ((stderr, "Stack %lu Entering state %d\n",
                     (unsigned long) yyk, yystate));
 
@@ -2236,7 +2236,7 @@ struct yyGLRStack {
              yys != yystateStack.yysplitPoint;
              yys = stateAt(yys).yypredIndex, yyn += 1)
           continue;
-        YYCHK (yyresolveStates (&stateAt(yystateStack.yytops[0]), yyn
+        YYCHK (yyresolveStates (&topState(0), yyn
                                ]b4_user_args[));
       }
     return yyok;
@@ -2302,7 +2302,7 @@ struct yyGLRStack {
   yyglrReduce (size_t yyk, yyRuleNum yyrule,
                bool yyforceEval]b4_user_formals[)
   {
-    size_t yyposn = stateAt(yystateStack.yytops[yyk]).yyposn;
+    size_t yyposn = topState(yyk).yyposn;
 
     if (yyforceEval || !yystateStack.isSplit())
       {
@@ -2319,7 +2319,7 @@ struct yyGLRStack {
           return yyflag;
         YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyrule], &yysval, &yyloc);
         yyglrShift (yyk,
-                    yyLRgotoState (stateAt(yystateStack.yytops[yyk]).yylrState,
+                    yyLRgotoState (topState(yyk).yylrState,
                                    yylhsNonterm (yyrule)),
                     yyposn, &yysval]b4_locations_if([, &yyloc])[);
       }
@@ -2429,6 +2429,10 @@ struct yyGLRStack {
     return yystateStack.stateAt(i);
   }
 
+  yyGLRState& topState(int i) {
+    return stateAt(yystateStack.yytops[i]);
+  }
+
  private:
 
   void popall() {
@@ -2442,7 +2446,7 @@ struct yyGLRStack {
             {
               while (yystateStack.yytops[k].isValid())
                 {
-                  yyGLRState* state = &stateAt(yystateStack.yytops[k]);]b4_locations_if([[
+                  yyGLRState* state = &topState(k);]b4_locations_if([[
                     yyerror_range[1].yystate.yyloc = state->yyloc;]])[
                   if (state->yypredIndex.isValid())
                     yystateStack.yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
