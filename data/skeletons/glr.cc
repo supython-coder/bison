@@ -971,7 +971,7 @@ typedef short yyItemNum;
 struct yyGLRState;
 struct yyGLRStateSet;
 struct yySemanticOption;
-union yyGLRStackItem;
+struct yyGLRStackItem;
 struct yyGLRStack;
 struct yyStateStack;
 
@@ -1044,8 +1044,6 @@ yydefaultAction (yyStateNum yystate)
 
 
 struct yyGLRState {
-  /** Type tag: always true.  */
-  bool yyisState;
   /** Type tag for yysemantics.  If true, yysval applies, otherwise
    *  yyfirstValIndex applies.  */
   bool yyresolved;
@@ -1200,8 +1198,6 @@ class yyGLRStateSet {
 };
 
 struct yySemanticOption {
-  /** Type tag: always false.  */
-  bool yyisState;
   /** Rule number for this reduction */
   yyRuleNum yyrule;
   /** The last RHS state in the list of states to be reduced.  */
@@ -1217,9 +1213,15 @@ struct yySemanticOption {
 
 /** Type of the items in the GLR stack.  The yyisState field
  *  indicates which item of the union is valid.  */
-union yyGLRStackItem {
-  yyGLRState yystate;
-  yySemanticOption yyoption;
+struct yyGLRStackItem {
+  union {
+    yyGLRState yystate;
+    yySemanticOption yyoption;
+  };
+#if ]b4_api_PREFIX[DEBUG
+  /** Type tag for the union. */
+  bool yyisState;
+#endif
 };
 
 
@@ -1371,12 +1373,20 @@ struct yyStateStack {
 
   yySemanticOption& optionAt(yySemanticOptionIndex i) {
     YYASSERT(i.isValid());
-    return operator[](i.get()).yyoption;
+    yyGLRStackItem& state = operator[](i.get());
+#if ]b4_api_PREFIX[DEBUG
+    YYASSERT (!state.yyisState);
+#endif
+    return state.yyoption;
   }
 
   yyGLRState& stateAt(yyStateIndex i) {
     YYASSERT(i.isValid());
-    return operator[](i.get()).yystate;
+    yyGLRStackItem& state = operator[](i.get());
+#if ]b4_api_PREFIX[DEBUG
+    YYASSERT (state.yyisState);
+#endif
+    return state.yystate;
   }
 
   yyGLRState* predState(yyGLRState* s) {
@@ -1644,7 +1654,9 @@ struct yyStateStack {
   {
     YYASSERT(yyitems.size() < yyitems.capacity());
     yyitems.push_back(yyGLRStackItem());
-    yyitems.back().yystate.yyisState = yyisState;
+#if ]b4_api_PREFIX[DEBUG
+    yyitems.back().yyisState = yyisState;
+#endif
     return yyitems.size() - 1;
   }
 
@@ -1771,7 +1783,6 @@ struct yyGLRStack {
   {
     yySemanticOptionIndex yynewIndex = yystateStack.yynewSemanticOption();
     yySemanticOption& yynewOption = optionAt(yynewIndex);
-    YYASSERT (!yynewOption.yyisState);
     yynewOption.yystateIndex = yyrhs;
     yynewOption.yyrule = yyrule;
     if (yystateStack.yytops.lookaheadNeeds(yyk))
@@ -1799,10 +1810,8 @@ struct yyGLRStack {
         const yyGLRStackItem& item = yystateStack[yyi];
         YYFPRINTF (stderr, "%3lu. ",
                    (unsigned long) yyi);
-        if (*(bool *) &item)
+        if (item.yyisState)
           {
-            YYASSERT (item.yystate.yyisState);
-            YYASSERT (item.yyoption.yyisState);
             YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
                        item.yystate.yyresolved, item.yystate.yylrState,
                        (unsigned long) item.yystate.yyposn,
@@ -1813,8 +1822,6 @@ struct yyGLRStack {
           }
         else
           {
-            YYASSERT (!item.yystate.yyisState);
-            YYASSERT (!item.yyoption.yyisState);
             YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
                        item.yyoption.yyrule - 1,
                        (long) item.yyoption.yystateIndex.get(),
@@ -2388,7 +2395,6 @@ struct yyGLRStack {
   {
     yyStateIndex yynewIndex = yystateStack.yynewGLRState();
     yyGLRState& yynewState = stateAt(yynewIndex);
-    YYASSERT (yynewState.yyisState);
 
     yynewState.yylrState = yylrState;
     yynewState.yyposn = yyposn;
