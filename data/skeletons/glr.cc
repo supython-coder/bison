@@ -903,6 +903,40 @@ yystpcpy (char *yydest, const char *yysrc)
 # endif
 
 # ifndef yytnamerr
+template <bool YYCOPY>
+static size_t
+yytnamerr_count (char *yyres, const char *yystr)
+{
+  size_t yyn = 0;
+  char const *yyp = yystr;
+
+  for (;;)
+    switch (*++yyp)
+      {
+      case '\'':
+      case ',':
+        return -1;
+
+      case '\\':
+        if (*++yyp != '\\')
+          return -1;
+        // fall-through;
+
+      default:
+        if (YYCOPY)
+          yyres[yyn] = *yyp;
+        yyn++;
+        break;
+
+      case '"':
+        if (YYCOPY)
+          yyres[yyn] = '\0';
+        return yyn;
+      }
+  // Unreachable.
+  return -1;
+}
+
 /* Copy to YYRES the contents of YYSTR after stripping away unnecessary
    quotes and backslashes, so that it's suitable for yyerror.  The
    heuristic is that double-quoting is unnecessary unless the string
@@ -915,38 +949,13 @@ yytnamerr (char *yyres, const char *yystr)
 {
   if (*yystr == '"')
     {
-      size_t yyn = 0;
-      char const *yyp = yystr;
-
-      for (;;)
-        switch (*++yyp)
-          {
-          case '\'':
-          case ',':
-            goto do_not_strip_quotes;
-
-          case '\\':
-            if (*++yyp != '\\')
-              goto do_not_strip_quotes;
-            else
-              goto append;
-
-          append:
-          default:
-            if (yyres)
-              yyres[yyn] = *yyp;
-            yyn++;
-            break;
-
-          case '"':
-            if (yyres)
-              yyres[yyn] = '\0';
-            return yyn;
-          }
-    do_not_strip_quotes: ;
+      size_t count = (yyres == YY_NULLPTR)
+        ? yytnamerr_count<true>(yyres, yystr)
+        : yytnamerr_count<false>(yyres, yystr);
+      if (count != -1) return count;
     }
 
-  if (! yyres)
+  if (yyres == YY_NULLPTR)
     return strlen (yystr);
 
   return (size_t) (yystpcpy (yyres, yystr) - yyres);
