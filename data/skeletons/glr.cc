@@ -2405,7 +2405,7 @@ struct yyGLRStack {
                     "Reduced stack %lu by rule #%d; action deferred.  "
                     "Now in state %d.\n",
                     (unsigned long) yyk.get(), yyrule - 1, yynewLRState));
-        for (yyStateSetIndex yyi; yyi.get() < yystateStack.numTops(); ++yyi)
+        for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.get() < yystateStack.numTops(); ++yyi)
           if (yyi != yyk && yystateStack.topAt(yyi).isValid())
             {
               yyStateIndex yysplit = yystateStack.yysplitPoint;
@@ -2511,7 +2511,7 @@ struct yyGLRStack {
        of whether it is well-formed.  */
     if (!yystateStack.yyitems.empty())
       {
-        for (yyStateSetIndex k; k.get() < yystateStack.numTops(); k += 1)
+        for (yyStateSetIndex k = yycreateStateSetIndex(0); k.get() < yystateStack.numTops(); k += 1)
           if (yystateStack.topAt(k).isValid())
             {
               while (yystateStack.topAt(k).isValid())
@@ -2984,7 +2984,7 @@ b4_dollar_popdef])[]dnl
         {
           yySymbol yytoken_to_shift;
 
-          for (yyStateSetIndex yys; yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
             yystackp->yystateStack.yytops.setLookaheadNeeds(yys, yychar != YYEMPTY);
 
           /* yyprocessOneStack returns one of three things:
@@ -3006,7 +3006,7 @@ b4_dollar_popdef])[]dnl
              reductions on all stacks) helps prevent double destructor calls
              on yylval in the event of memory exhaustion.  */
 
-          for (yyStateSetIndex yys; yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
             YYCHK1 (yystack.yyprocessOneStack (yys, yyposn]b4_lpure_args[));
           yystack.yystateStack.yytops.yyremoveDeletes ();
           if (yystack.yystateStack.yytops.size() == 0)
@@ -3029,7 +3029,7 @@ b4_dollar_popdef])[]dnl
           yytoken_to_shift = YYTRANSLATE (yychar);
           yychar = YYEMPTY;
           yyposn += 1;
-          for (yyStateSetIndex yys; yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
             {
               yyStateNum yystate = yystack.topState(yys).yylrState;
               const short* yyconflicts;
