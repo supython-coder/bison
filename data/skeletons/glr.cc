@@ -1062,6 +1062,31 @@ yydefaultAction (yyStateNum yystate)
 
 
 struct yyGLRState {
+  yyGLRState()
+  : yyresolved(false)
+  , yylrState(0)
+  , yypredIndex(yycreateInvalidStateIndex())
+  , yyposn(0) {}
+
+  /// Build with a semantic value.
+  yyGLRState(yyStateNum lrState, yyStateIndex predIndex, size_t posn, YYSTYPE sval]b4_locations_if([[, YYLTYPE loc]])[)
+  : yyresolved(true)
+  , yylrState(lrState)
+  , yypredIndex(predIndex)
+  , yyposn(posn)]b4_locations_if([[
+  , yyloc(loc)]])[ {
+    yysemantics.yysval = sval;
+  }
+
+  /// Build with a semantic option.
+  yyGLRState(yyStateNum lrState, yyStateIndex predIndex, size_t posn)
+  : yyresolved(false)
+  , yylrState(lrState)
+  , yypredIndex(predIndex)
+  , yyposn(posn) {
+    yysemantics.yyfirstValIndex.setInvalid();
+  }
+
   /** Type tag for yysemantics.  If true, yysval applies, otherwise
    *  yyfirstValIndex applies.  */
   bool yyresolved;
@@ -1272,11 +1297,12 @@ struct yyGLRStackItem {
     return isState_;
   }
  private:
-  /// The possible contents of raw_.
+  /// The possible contents of raw_. Since they have constructors, they cannot
+  /// be directly included in the union.
   struct contents {
     union {
-      yyGLRState yystate;
-      yySemanticOption yyoption;
+      char yystate[sizeof(yyGLRState)];
+      char yyoption[sizeof(yySemanticOption)];
     };
   };
   enum { union_size = sizeof(contents) };
@@ -1530,8 +1556,14 @@ struct yyStateStack {
   /** Return a fresh GLRState.
    * Callers should call yyreserveStack afterwards to make sure there is
    * sufficient headroom.  */
-  yyStateIndex yynewGLRState() {
-    return yycreateStateIndex(yynewGLRStackItem(true));
+  yyStateIndex yynewGLRState(yyGLRState newState) {
+    yyStateIndex index = yycreateStateIndex(yynewGLRStackItem(true));
+#if 201103L <= YY_CPLUSPLUS
+    stateAt(index) = std::move(newState);
+#else
+    stateAt(index) = newState;
+#endif
+    return index;
   }
 
   /** Return a fresh SemanticOption.
@@ -2476,18 +2508,12 @@ struct yyGLRStack {
   yyglrShiftDefer (yyStateSetIndex yyk, yyStateNum yylrState,
                    size_t yyposn, yyStateIndex yyrhs, yyRuleNum yyrule)
   {
-    yyStateIndex yynewIndex = yystateStack.yynewGLRState();
-    yyGLRState& yynewState = stateAt(yynewIndex);
-
-    yynewState.yylrState = yylrState;
-    yynewState.yyposn = yyposn;
-    yynewState.yyresolved = false;
-    yynewState.yypredIndex = yystateStack.topAt(yyk);
-    yynewState.yysemantics.yyfirstValIndex.setInvalid();
+    yyStateIndex yynewIndex = yystateStack.yynewGLRState(
+      yyGLRState(yylrState, yystateStack.topAt(yyk), yyposn));
     yystateStack.setTopAt(yyk, yynewIndex);
 
     /* Invokes yyreserveStack.  */
-    yyaddDeferredAction (yyk, &yynewState, yyrhs, yyrule);
+    yyaddDeferredAction (yyk, &stateAt(yynewIndex), yyrhs, yyrule);
   }
 
   /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
@@ -2498,17 +2524,10 @@ struct yyGLRStack {
               size_t yyposn,
               YYSTYPE* yyvalp]b4_locations_if([, YYLTYPE* yylocp])[)
   {
-    yyStateIndex yynewIndex = yystateStack.yynewGLRState();
-    yyGLRState& yynewState = stateAt(yynewIndex);
-
-    yynewState.yylrState = yylrState;
-    yynewState.yyposn = yyposn;
-    yynewState.yyresolved = true;
-    yynewState.yypredIndex = yystateStack.topAt(yyk);
-    yynewState.yysemantics.yysval = *yyvalp;]b4_locations_if([
-    yynewState.yyloc = *yylocp;])[
+    yyStateIndex yynewIndex = yystateStack.yynewGLRState(
+      yyGLRState{yylrState, yystateStack.topAt(yyk), yyposn, *yyvalp
+                 ]b4_locations_if([, *yylocp])[});
     yystateStack.setTopAt(yyk, yynewIndex);
-
     yyreserveGlrStack();
   }
 
