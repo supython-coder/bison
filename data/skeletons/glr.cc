@@ -532,7 +532,7 @@ m4_define([b4_lhs_value],
 # -----------------------------
 # See README.
 m4_define([b4_rhs_data],
-[((yyGLRStackItem const *)yyvsp)@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
+[((yyGLRStackItem const *)yyvsp)@{YYFILL (b4_subtract([$2], [$1]))@}.getState()])
 
 
 # b4_rhs_value(RULE-LENGTH, POS, SYMBOL-NUM, [TYPE])
@@ -779,7 +779,7 @@ dnl We probably ought to introduce a type for confl.
 
 ]b4_locations_if([[
 ]b4_yylloc_default_define[
-# define YYRHSLOC(Rhs, K) ((Rhs)[K].yystate.yyloc)
+# define YYRHSLOC(Rhs, K) ((Rhs)[K].getState().yyloc)
 ]])[
 
 ]b4_pure_if(
@@ -1231,17 +1231,63 @@ struct yySemanticOption {
   yySemanticOptionIndex yynextIndex;
 };
 
-/** Type of the items in the GLR stack.  The yyisState field
+/** Type of the items in the GLR stack.  The isState_ field
  *  indicates which item of the union is valid.  */
 struct yyGLRStackItem {
-  union {
-    yyGLRState yystate;
-    yySemanticOption yyoption;
+  yyGLRStackItem(bool isState = true)
+    : isState_(isState) {
+      if (isState) {
+        new (&raw_) yyGLRState;
+      } else {
+        new (&raw_) yySemanticOption;
+      }
+  }
+
+  ~yyGLRStackItem() {
+    if (isState()) {
+      getState().~yyGLRState();
+    } else {
+      getOption().~yySemanticOption();
+    }
+  }
+
+  yyGLRState& getState() {
+    YYASSERT(isState());
+    return *(yyGLRState*)&raw_;
+  }
+  const yyGLRState& getState() const {
+    YYASSERT(isState());
+    return *(yyGLRState*)&raw_;
+  }
+
+  yySemanticOption& getOption() {
+    YYASSERT(!isState());
+    return *(yySemanticOption*)&raw_;
+  }
+  const yySemanticOption& getOption() const {
+    YYASSERT(!isState());
+    return *(yySemanticOption*)&raw_;
+  }
+  bool isState() const {
+    return isState_;
+  }
+ private:
+  /// The possible contents of raw_.
+  struct contents {
+    union {
+      yyGLRState yystate;
+      yySemanticOption yyoption;
+    };
   };
-#if ]b4_api_PREFIX[DEBUG
+  enum { union_size = sizeof(contents) };
+  union {
+    /// Strongest alignment constraints.
+    long double yyalign_me;
+    /// A buffer large enough to store the contents.
+    char raw_[union_size];
+  };
   /** Type tag for the union. */
-  bool yyisState;
-#endif
+  bool isState_;
 };
 
 
@@ -1415,19 +1461,13 @@ struct yyStateStack {
   yySemanticOption& optionAt(yySemanticOptionIndex i) {
     YYASSERT(i.isValid());
     yyGLRStackItem& state = operator[](i.get());
-#if ]b4_api_PREFIX[DEBUG
-    YYASSERT (!state.yyisState);
-#endif
-    return state.yyoption;
+    return state.getOption();
   }
 
   yyGLRState& stateAt(yyStateIndex i) {
     YYASSERT(i.isValid());
     yyGLRStackItem& state = operator[](i.get());
-#if ]b4_api_PREFIX[DEBUG
-    YYASSERT (state.yyisState);
-#endif
-    return state.yystate;
+    return state.getState();
   }
 
   yyGLRStackItem& stackItemAt(size_t index) {
@@ -1516,27 +1556,27 @@ struct yyStateStack {
   }
 
   /** Fill in YYVSP[YYLOW1 .. YYLOW0-1] from the chain of states starting
-   *  at YYVSP[YYLOW0].yystate.yypredIndex.  Leaves YYVSP[YYLOW1].yystate.yypred
+   *  at YYVSP[YYLOW0].getState().yypredIndex.  Leaves YYVSP[YYLOW1].getState().yypred
    *  containing the pointer to the next state in the chain.  */
   void
   yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
   {
     int i;
-    yyGLRState *s = &stateAt(yyvsp[yylow0].yystate.yypredIndex);
+    yyGLRState *s = &stateAt(yyvsp[yylow0].getState().yypredIndex);
     for (i = yylow0-1; i >= yylow1; i -= 1)
       {
 #if ]b4_api_PREFIX[DEBUG
-        yyvsp[i].yystate.yylrState = s->yylrState;
+        yyvsp[i].getState().yylrState = s->yylrState;
 #endif
-        yyvsp[i].yystate.yyresolved = s->yyresolved;
+        yyvsp[i].getState().yyresolved = s->yyresolved;
         if (s->yyresolved)
-          yyvsp[i].yystate.yysemantics.yysval = s->yysemantics.yysval;
+          yyvsp[i].getState().yysemantics.yysval = s->yysemantics.yysval;
         else
           /* The effect of using yysval or yyloc (in an immediate rule) is
            * undefined.  */
-          yyvsp[i].yystate.yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
-        yyvsp[i].yystate.yyloc = s->yyloc;]])[
-        yyvsp[i].yystate.yypredIndex = s->yypredIndex;
+          yyvsp[i].getState().yysemantics.yyfirstValIndex.setInvalid();]b4_locations_if([[
+        yyvsp[i].getState().yyloc = s->yyloc;]])[
+        yyvsp[i].getState().yypredIndex = s->yypredIndex;
         s = predState(s);
       }
   }
@@ -1571,11 +1611,11 @@ struct yyStateStack {
       {
         YYFPRINTF (stderr, "   $%d = ", yyi + 1);
         yy_symbol_print (stderr,
-                         yystos[yyvsp[yyi - yynrhs + 1].yystate.yylrState],
-                         &yyvsp[yyi - yynrhs + 1].yystate.yysemantics.yysval]b4_locations_if([,
+                         yystos[yyvsp[yyi - yynrhs + 1].getState().yylrState],
+                         &yyvsp[yyi - yynrhs + 1].getState().yysemantics.yysval]b4_locations_if([,
                          &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
                          b4_user_args[);
-        if (!yyvsp[yyi - yynrhs + 1].yystate.yyresolved)
+        if (!yyvsp[yyi - yynrhs + 1].getState().yyresolved)
           YYFPRINTF (stderr, " (unresolved)");
         YYFPRINTF (stderr, "\n");
       }
@@ -1718,10 +1758,7 @@ struct yyStateStack {
   yynewGLRStackItem (bool yyisState)
   {
     YYASSERT(yyitems.size() < yyitems.capacity());
-    yyitems.push_back(yyGLRStackItem());
-#if ]b4_api_PREFIX[DEBUG
-    yyitems.back().yyisState = yyisState;
-#endif
+    yyitems.push_back(yyGLRStackItem(yyisState));
     return yyitems.size() - 1;
   }
 
@@ -1875,22 +1912,22 @@ struct yyGLRStack {
         const yyGLRStackItem& item = yystateStack[yyi];
         YYFPRINTF (stderr, "%3lu. ",
                    (unsigned long) yyi);
-        if (item.yyisState)
+        if (item.isState())
           {
             YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
-                       item.yystate.yyresolved, item.yystate.yylrState,
-                       (unsigned long) item.yystate.yyposn,
-                       (long) item.yystate.yypredIndex.get());
-            if (! item.yystate.yyresolved)
+                       item.getState().yyresolved, item.getState().yylrState,
+                       (unsigned long) item.getState().yyposn,
+                       (long) item.getState().yypredIndex.get());
+            if (! item.getState().yyresolved)
               YYFPRINTF (stderr, ", firstVal: %ld",
-                         (long) item.yystate.yysemantics.yyfirstValIndex.get());
+                         (long) item.getState().yysemantics.yyfirstValIndex.get());
           }
         else
           {
             YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
-                       item.yyoption.yyrule - 1,
-                       (long) item.yyoption.yystateIndex.get(),
-                       (long) item.yyoption.yynextIndex.get());
+                       item.getOption().yyrule - 1,
+                       (long) item.getOption().yystateIndex.get(),
+                       (long) item.getOption().yynextIndex.get());
           }
         YYFPRINTF (stderr, "\n");
       }
@@ -2063,8 +2100,8 @@ struct yyGLRStack {
                  of the shifted error token must take it into account.  */
               yyGLRState *yys = &firstTopState();
               yyGLRStackItem yyerror_range[3];
-              yyerror_range[1].yystate.yyloc = yys->yyloc;
-              yyerror_range[2].yystate.yyloc = yylloc;
+              yyerror_range[1].getState().yyloc = yys->yyloc;
+              yyerror_range[2].getState().yyloc = yylloc;
               YYLLOC_DEFAULT ((yys->yyloc), yyerror_range, 2);]])[
               yytoken = YYTRANSLATE (yychar);
               yydestruct ("Error: discarding",
@@ -2103,7 +2140,7 @@ struct yyGLRStack {
                 /* Shift the error token.  */]b4_locations_if([[
                 /* First adjust its location.*/
                 YYLTYPE yyerrloc;
-                yyerror_range[2].yystate.yyloc = yylloc;
+                yyerror_range[2].getState().yyloc = yylloc;
                 YYLLOC_DEFAULT (yyerrloc, (yyerror_range), 2);]])[
                 YY_SYMBOL_PRINT ("Shifting", yystos[yytable[yyj]],
                                  &yylval, &yyerrloc);
@@ -2113,7 +2150,7 @@ struct yyGLRStack {
                 break;
               }
           }]b4_locations_if([[
-        yyerror_range[1].yystate.yyloc = yys->yyloc;]])[
+        yyerror_range[1].getState().yyloc = yys->yyloc;]])[
         if (yys->yypredIndex.isValid())
           yystateStack.yydestroyGLRState ("Error: popping", yys]b4_user_args[);
         yystateStack.setFirstTop(yys->yypredIndex);
@@ -2252,10 +2289,10 @@ struct yyGLRStack {
     if (yyrhslen == 0)
       *yyvalp = yyval_default;
     else
-      *yyvalp = yyvsp[YYFILL (1-yyrhslen)].yystate.yysemantics.yysval;]b4_locations_if([[
+      *yyvalp = yyvsp[YYFILL (1-yyrhslen)].getState().yysemantics.yysval;]b4_locations_if([[
     /* Default location. */
     YYLLOC_DEFAULT ((*yylocp), (yyvsp - yyrhslen), yyrhslen);
-    yyerror_range[1].yystate.yyloc = *yylocp;
+    yyerror_range[1].getState().yyloc = *yylocp;
   ]])[
   #if YY_EXCEPTIONS
     typedef ]b4_namespace_ref[::]b4_parser_class[::syntax_error syntax_error;
@@ -2333,11 +2370,11 @@ struct yyGLRStack {
       {
         yyGLRStackItem yyrhsVals[YYMAXRHS + YYMAXLEFT + 1];
         yyStateIndex yys
-          = yyrhsVals[YYMAXRHS + YYMAXLEFT].yystate.yypredIndex
+          = yyrhsVals[YYMAXRHS + YYMAXLEFT].getState().yypredIndex
           = yystateStack.topAt(yyk);]b4_locations_if([[
         if (yynrhs == 0)
           /* Set default location.  */
-          yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = stateAt(yys).yyloc;]])[
+          yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].getState().yyloc = stateAt(yys).yyloc;]])[
         for (int yyi = 0; yyi < yynrhs; yyi += 1)
           {
             yys = stateAt(yys).yypredIndex;
@@ -2517,7 +2554,7 @@ struct yyGLRStack {
               while (yystateStack.topAt(k).isValid())
                 {
                   yyGLRState* state = &topState(k);]b4_locations_if([[
-                    yyerror_range[1].yystate.yyloc = state->yyloc;]])[
+                    yyerror_range[1].getState().yyloc = state->yyloc;]])[
                   if (state->yypredIndex.isValid())
                     yystateStack.yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
                   yystateStack.setTopAt(k, state->yypredIndex);
@@ -2660,10 +2697,10 @@ struct yyGLRStack {
         return yyflag;
       }
 
-    yyrhsVals[YYMAXRHS + YYMAXLEFT].yystate.yypredIndex = yyopt->yystateIndex;]b4_locations_if([[
+    yyrhsVals[YYMAXRHS + YYMAXLEFT].getState().yypredIndex = yyopt->yystateIndex;]b4_locations_if([[
     if (yynrhs == 0)
       /* Set default location.  */
-      yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = yyoptState->yyloc;]])[
+      yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].getState().yyloc = yyoptState->yyloc;]])[
     {
       int yychar_current = yychar;
       YYSTYPE yylval_current = yylval;]b4_locations_if([
@@ -2705,7 +2742,7 @@ struct yyGLRStack {
                 for (yys = &stateAt(yyoption->yystateIndex), yyn = yynrhs;
                      yyn > 0;
                      yys = predState(yys), yyn -= 1)
-                  yyrhsloc[yyn].yystate.yyloc = yys->yyloc;
+                  yyrhsloc[yyn].getState().yyloc = yys->yyloc;
               }
             else
               {
@@ -2716,7 +2753,7 @@ struct yyGLRStack {
                    detected.  Thus the location of the previous state (but not
                    necessarily the previous state itself) is guaranteed to be
                    resolved already.  */
-                yyrhsloc[0].yystate.yyloc = stateAt(yyoption->yystateIndex).yyloc;
+                yyrhsloc[0].getState().yyloc = stateAt(yyoption->yystateIndex).yyloc;
               }
             YYLLOC_DEFAULT ((yys1->yyloc), yyrhsloc, yynrhs);
           }
@@ -2944,7 +2981,7 @@ b4_dollar_popdef])[]dnl
               yyRuleNum yyrule = yydefaultAction (yystate);
               if (yyrule == 0)
                 {]b4_locations_if([[
-                  yystack.yyerror_range[1].yystate.yyloc = yylloc;]])[
+                  yystack.yyerror_range[1].getState().yyloc = yylloc;]])[
                   yystack.yyreportSyntaxError (]b4_user_args_no_comma[);
                   goto yyuser_error;
                 }
@@ -2968,7 +3005,7 @@ b4_dollar_popdef])[]dnl
                 }
               else if (yyisErrorAction (yyaction))
                 {]b4_locations_if([[
-                  yystack.yyerror_range[1].yystate.yyloc = yylloc;]])[
+                  yystack.yyerror_range[1].getState().yyloc = yylloc;]])[
                   /* Don't issue an error message again for exceptions
                      thrown from the scanner.  */
                   if (yychar != YYFAULTYTOK)
@@ -3016,7 +3053,7 @@ b4_dollar_popdef])[]dnl
                 yystack.yyFail (YY_("syntax error")][]b4_lpure_args[);
               YYCHK1 (yystack.yyresolveStack (]b4_user_args_no_comma[));
               YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));]b4_locations_if([[
-              yystack.yyerror_range[1].yystate.yyloc = yylloc;]])[
+              yystack.yyerror_range[1].getState().yyloc = yylloc;]])[
               yystack.yyreportSyntaxError (]b4_user_args_no_comma[);
               goto yyuser_error;
             }
