@@ -674,6 +674,12 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
 # define YYASSERT(Condition) ((void) ((Condition) || (abort (), 0)))
 #endif
 
+#ifdef YYDEBUG
+# define YYDASSERT(Condition) YYASSERT(Condition)
+#else
+# define YYDASSERT(Condition)
+#endif
+
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  ]b4_final_state_number[
 /* YYLAST -- Last index in YYTABLE.  */
@@ -1323,20 +1329,20 @@ struct yyGLRStackItem {
   }
 
   yyGLRState& getState() {
-    YYASSERT(isState());
+    YYDASSERT(isState());
     return *(yyGLRState*)&raw_;
   }
   const yyGLRState& getState() const {
-    YYASSERT(isState());
+    YYDASSERT(isState());
     return *(yyGLRState*)&raw_;
   }
 
   yySemanticOption& getOption() {
-    YYASSERT(!isState());
+    YYDASSERT(!isState());
     return *(yySemanticOption*)&raw_;
   }
   const yySemanticOption& getOption() const {
-    YYASSERT(!isState());
+    YYDASSERT(!isState());
     return *(yySemanticOption*)&raw_;
   }
   bool isState() const {
@@ -1493,7 +1499,6 @@ struct yyStateStack {
 
     while (yyr != YY_NULLPTR)
       {
-        YYASSERT(nextFreeItem < yyitems.data() + yyitems.size());
         yyGLRState& nextFreeState = nextFreeItem->getState();
         nextFreeState.copyFrom(*yyr);
         yyr = yyr->pred();
@@ -1560,7 +1565,7 @@ struct yyStateStack {
   }
 
   yySemanticOption& optionAt(yySemanticOptionIndex i) {
-    YYASSERT(i.isValid());
+    YYDASSERT(i.isValid());
     yyGLRStackItem& state = operator[](i.get());
     return state.getOption();
   }
@@ -1860,7 +1865,7 @@ struct yyStateStack {
   inline size_t
   yynewGLRStackItem (bool yyisState)
   {
-    YYASSERT(yyitems.size() < yyitems.capacity());
+    YYDASSERT(yyitems.size() < yyitems.capacity());
     yyitems.push_back(yyGLRStackItem(yyisState));
     return yyitems.size() - 1;
   }
