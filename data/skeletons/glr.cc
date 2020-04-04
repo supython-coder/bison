@@ -1243,6 +1243,19 @@ class yyGLRStateSet {
 };
 
 struct yySemanticOption {
+  yySemanticOption()
+  : yyrule(0)
+  , yystateIndex(yycreateInvalidStateIndex())
+  , yyrawchar(0) {
+    yynextIndex.setInvalid();
+  }
+
+  yySemanticOption(yyRuleNum rule, yyStateIndex state, int rawChar, yySemanticOptionIndex next)
+  : yyrule(rule)
+  , yystateIndex(state)
+  , yyrawchar(rawChar)
+  , yynextIndex(next) {}
+
   /** Rule number for this reduction */
   yyRuleNum yyrule;
   /** The last RHS state in the list of states to be reduced.  */
@@ -1569,8 +1582,14 @@ struct yyStateStack {
   /** Return a fresh SemanticOption.
    * Callers should call yyreserveStack afterwards to make sure there is
    * sufficient headroom.  */
-  yySemanticOptionIndex yynewSemanticOption() {
-    return yycreateOptionIndex(yynewGLRStackItem(false));
+  yySemanticOptionIndex yynewSemanticOption(yySemanticOption option) {
+    yySemanticOptionIndex index = yycreateOptionIndex(yynewGLRStackItem(false));
+#if 201103L <= YY_CPLUSPLUS
+    optionAt(index) = std::move(option);
+#else
+    optionAt(index) = option;
+#endif
+    return index;
   }
 
   /* Do nothing if YYNORMAL or if *YYLOW <= YYLOW1.  Otherwise, fill in
@@ -1915,19 +1934,16 @@ struct yyGLRStack {
   yyaddDeferredAction (yyStateSetIndex yyk, yyGLRState* yystate,
                        yyStateIndex yyrhs, yyRuleNum yyrule)
   {
-    yySemanticOptionIndex yynewIndex = yystateStack.yynewSemanticOption();
+    yySemanticOptionIndex yynewIndex =
+      yystateStack.yynewSemanticOption(yySemanticOption{yyrule, yyrhs, YYEMPTY,
+                                       yystate->yysemantics.yyfirstValIndex});
     yySemanticOption& yynewOption = optionAt(yynewIndex);
-    yynewOption.yystateIndex = yyrhs;
-    yynewOption.yyrule = yyrule;
     if (yystateStack.yytops.lookaheadNeeds(yyk))
       {
         yynewOption.yyrawchar = yychar;
         yynewOption.yyval = yylval;]b4_locations_if([
         yynewOption.yyloc = yylloc;])[
       }
-    else
-      yynewOption.yyrawchar = YYEMPTY;
-    yynewOption.yynextIndex = yystate->yysemantics.yyfirstValIndex;
     yystate->yysemantics.yyfirstValIndex = yynewIndex;
 
     yyreserveGlrStack();
