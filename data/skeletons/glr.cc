@@ -1784,23 +1784,22 @@ struct yyStateStack {
   void
   yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
   {
-    int i;
     yyGLRState* s = yyvsp[yylow0].getState().pred();
-    for (i = yylow0-1; i >= yylow1; i -= 1)
+    for (int i = yylow0-1; i >= yylow1; i -= 1, s = s->pred())
       {
+        yyGLRState& yys = yyvsp[i].getState();
 #if ]b4_api_PREFIX[DEBUG
-        yyvsp[i].getState().yylrState = s->yylrState;
+        yys.yylrState = s->yylrState;
 #endif
-        yyvsp[i].getState().yyresolved = s->yyresolved;
+        yys.yyresolved = s->yyresolved;
         if (s->yyresolved)
-          yyvsp[i].getState().semanticVal() = s->semanticVal();
+          yys.semanticVal() = s->semanticVal();
         else
           /* The effect of using semanticVal or yyloc (in an immediate rule) is
            * undefined.  */
-          yyvsp[i].getState().setFirstVal(YY_NULLPTR);]b4_locations_if([[
-        yyvsp[i].getState().yyloc = s->yyloc;]])[
-        yyvsp[i].getState().setPred(s->pred());
-        s = s->pred();
+          yys.setFirstVal(YY_NULLPTR);]b4_locations_if([[
+        yys.yyloc = s->yyloc;]])[
+        yys.setPred(s->pred());
       }
   }
 
