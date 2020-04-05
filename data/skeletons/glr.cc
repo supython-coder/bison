@@ -1857,6 +1857,47 @@ struct yyStateStack {
       }
   }
 
+
+#define YYINDEX(YYX)                                                         \
+    ((YYX) == YY_NULLPTR ? -1 : (YYX)->indexIn(yyitems.data()))
+
+  void
+  dumpStack ()
+  {
+    for (size_t yyi = 0; yyi < size(); ++yyi)
+      {
+        yyGLRStackItem& item = yyitems[yyi];
+        YYFPRINTF (stderr, "%3lu. ",
+                   (unsigned long) yyi);
+        if (item.isState())
+          {
+            YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
+                       item.getState().yyresolved, item.getState().yylrState,
+                       (unsigned long) item.getState().yyposn,
+                       (long) YYINDEX(item.getState().pred()));
+            if (! item.getState().yyresolved)
+              YYFPRINTF (stderr, ", firstVal: %ld",
+                         (long) YYINDEX(item.getState().firstVal()));
+          }
+        else
+          {
+            YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
+                       item.getOption().yyrule - 1,
+                       (long) YYINDEX(item.getOption().state()),
+                       (long) YYINDEX(item.getOption().next()));
+          }
+        YYFPRINTF (stderr, "\n");
+      }
+    YYFPRINTF (stderr, "Tops:");
+    for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.get() < numTops(); ++yyi) {
+      YYFPRINTF (stderr, "%lu: %ld; ",
+                 (unsigned long) yyi.get(),
+                 (long) YYINDEX(topAt(yyi)));
+    }
+    YYFPRINTF (stderr, "\n");
+  }
+
+#undef YYINDEX
 #endif
 
   YYRESULTTAG
@@ -2049,51 +2090,11 @@ struct yyGLRStack {
     yyreserveGlrStack();
   }
 
-
 #if ]b4_api_PREFIX[DEBUG
-
-#define YYINDEX(YYX)                                                         \
-    ((YYX) == YY_NULLPTR ? -1 : (YYX)->indexIn(yystackp->yystateStack.yyitems.data()))
-
-  void
-  yypdumpstack ()
-  {
-    for (size_t yyi = 0; yyi < yystateStack.size(); ++yyi)
-      {
-        yyGLRStackItem& item = yystateStack[yyi];
-        YYFPRINTF (stderr, "%3lu. ",
-                   (unsigned long) yyi);
-        if (item.isState())
-          {
-            YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
-                       item.getState().yyresolved, item.getState().yylrState,
-                       (unsigned long) item.getState().yyposn,
-                       (long) YYINDEX(item.getState().pred()));
-            if (! item.getState().yyresolved)
-              YYFPRINTF (stderr, ", firstVal: %ld",
-                         (long) YYINDEX(item.getState().firstVal()));
-          }
-        else
-          {
-            YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
-                       item.getOption().yyrule - 1,
-                       (long) YYINDEX(item.getOption().state()),
-                       (long) YYINDEX(item.getOption().next()));
-          }
-        YYFPRINTF (stderr, "\n");
-      }
-    YYFPRINTF (stderr, "Tops:");
-    for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.get() < yystateStack.numTops(); ++yyi) {
-      YYFPRINTF (stderr, "%lu: %ld; ",
-                 (unsigned long) yyi.get(),
-                 (long) YYINDEX(yystateStack.topAt(yyi)));
-    }
-    YYFPRINTF (stderr, "\n");
+  void yypdumpstack () {
+    yystateStack.dumpStack();
   }
-
-#undef YYINDEX
 #endif
-
   void
   yyreportSyntaxError (]b4_user_formals_no_comma[)
   {
@@ -3240,6 +3241,9 @@ static void
 yypstack (yyGLRStack* yystackp, size_t yyk)
 {
   yystackp->yypstack(yycreateStateSetIndex(yyk));
+}
+static void yypdumpstack (struct yyGLRStack* yystackp) {
+  yystackp->yypdumpstack();
 }
 
 #endif
