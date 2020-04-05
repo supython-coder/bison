@@ -1111,6 +1111,9 @@ class yyGLRState {
     return yysval;
   }
 
+  void
+  destroy (char const *yymsg]b4_user_formals[);
+
   size_t indexIn(yyGLRStackItem* array);
 
   yyGLRStackItem* asItem() {
@@ -1520,6 +1523,37 @@ void yySemanticOption::setNext(const yySemanticOption* s) {
   yynext = s ? asItem(this) - asItem(s) : 0;
 }
 
+void yyGLRState::destroy (char const *yymsg]b4_user_formals[)
+{
+  if (yyresolved)
+    yydestruct (yymsg, yystos[yylrState],
+                &semanticVal()]b4_locuser_args([&yyloc])[);
+  else
+    {
+#if ]b4_api_PREFIX[DEBUG
+      if (yydebug)
+        {
+          if (firstVal() != YY_NULLPTR)
+            YYFPRINTF (stderr, "%s unresolved", yymsg);
+          else
+            YYFPRINTF (stderr, "%s incomplete", yymsg);
+          YY_SYMBOL_PRINT ("", yystos[yylrState], YY_NULLPTR, &yyloc);
+        }
+#endif
+
+      if (firstVal() != YY_NULLPTR)
+        {
+          yySemanticOption *yyoption = firstVal();
+          yyGLRState *yyrh = yyoption->state();
+          for (int yyn = yyrhsLength (yyoption->yyrule); yyn > 0; yyn -= 1)
+            {
+              yyrh->destroy (yymsg]b4_user_args[);
+              yyrh = yyrh->pred();
+            }
+        }
+    }
+}
+
 
 static int
 yypreference (yySemanticOption* y0, yySemanticOption* y1);
@@ -1629,40 +1663,6 @@ struct yyStateStack {
       }
     yyitems.resize(nextFreeItem - yyitems.data());
   }
-
-  void
-  yydestroyGLRState (char const *yymsg,
-                     yyGLRState *yys]b4_user_formals[)
-  {
-    if (yys->yyresolved)
-      yydestruct (yymsg, yystos[yys->yylrState],
-                  &yys->semanticVal()]b4_locuser_args([&yys->yyloc])[);
-    else
-      {
-#if ]b4_api_PREFIX[DEBUG
-        if (yydebug)
-          {
-            if (yys->firstVal() != YY_NULLPTR)
-              YYFPRINTF (stderr, "%s unresolved", yymsg);
-            else
-              YYFPRINTF (stderr, "%s incomplete", yymsg);
-            YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
-          }
-#endif
-
-        if (yys->firstVal() != YY_NULLPTR)
-          {
-            yySemanticOption *yyoption = yys->firstVal();
-            yyGLRState *yyrh = yyoption->state();
-            for (int yyn = yyrhsLength (yyoption->yyrule); yyn > 0; yyn -= 1)
-              {
-                yydestroyGLRState (yymsg, yyrh]b4_user_args[);
-                yyrh = yyrh->pred();
-              }
-          }
-      }
-  }
-
 
   bool isSplit() const {
     return yysplitPoint != YY_NULLPTR;
@@ -2304,7 +2304,7 @@ struct yyGLRStack {
           }]b4_locations_if([[
         yyerror_range[1].getState().yyloc = yys->yyloc;]])[
         if (yys->pred() != YY_NULLPTR)
-          yystateStack.yydestroyGLRState ("Error: popping", yys]b4_user_args[);
+          yys->destroy ("Error: popping"]b4_user_args[);
         yystateStack.setFirstTop(yys->pred());
         yystateStack.pop_back();
       }
@@ -2677,7 +2677,7 @@ struct yyGLRStack {
               yyGLRState* state = topState(k);]b4_locations_if([[
                 yyerror_range[1].getState().yyloc = state->yyloc;]])[
               if (state->pred() != YY_NULLPTR)
-                yystateStack.yydestroyGLRState ("Cleanup: popping", state]b4_user_args[);
+                state->destroy ("Cleanup: popping"]b4_user_args[);
               yystateStack.setTopAt(k, state->pred());
               yystateStack.pop_back();
             }
@@ -2689,7 +2689,7 @@ struct yyGLRStack {
    *  on *YYSTACKP. If result != yyok, some states may have been left
    *  unresolved possibly with empty semantic option chains.  Regardless
    *  of whether result = yyok, each state has been left with consistent
-   *  data so that yydestroyGLRState can be invoked if necessary.  */
+   *  data so that destroy can be invoked if necessary.  */
   YYRESULTTAG
   yyresolveStates (yyGLRState* yys, int yyn]b4_user_formals[)
   {
@@ -2709,7 +2709,7 @@ struct yyGLRStack {
    *  cleared instead or it has been left unmodified except that
    *  redundant options may have been removed.  Regardless of whether
    *  result = yyok, YYS has been left with consistent data so that
-   *  yydestroyGLRState can be invoked if necessary.  */
+   *  destroy can be invoked if necessary.  */
   YYRESULTTAG
   yyresolveValue (yyGLRState* yys]b4_user_formals[)
   {
@@ -2810,7 +2810,7 @@ struct yyGLRStack {
     if (yyflag != yyok)
       {
         for (yyGLRState *yys = yyoptState; yynrhs > 0; yys = yys->pred(), yynrhs -= 1)
-          yystateStack.yydestroyGLRState ("Cleanup: popping", yys]b4_user_args[);
+          yys->destroy ("Cleanup: popping"]b4_user_args[);
         return yyflag;
       }
 
