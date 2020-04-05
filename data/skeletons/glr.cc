@@ -1114,6 +1114,20 @@ class yyGLRState {
   void
   destroy (char const *yymsg]b4_user_formals[);
 
+  /* DEBUGGING ONLY */
+#if ]b4_api_PREFIX[DEBUG
+  void yy_yypstack() const
+  {
+    if (pred() != YY_NULLPTR)
+      {
+        pred()->yy_yypstack();
+        YYFPRINTF (stderr, " -> ");
+      }
+    YYFPRINTF (stderr, "%d@@%lu", yylrState,
+               (unsigned long) yyposn);
+  }
+#endif
+
   size_t indexIn(yyGLRStackItem* array);
 
   yyGLRStackItem* asItem() {
@@ -1868,22 +1882,10 @@ struct yyStateStack {
   /* DEBUGGING ONLY */
 #if ]b4_api_PREFIX[DEBUG
   void
-  yy_yypstack (yyGLRState* yys)
-  {
-    if (yys->pred() != YY_NULLPTR)
-      {
-        yy_yypstack (yys->pred());
-        YYFPRINTF (stderr, " -> ");
-      }
-    YYFPRINTF (stderr, "%d@@%lu", yys->yylrState,
-               (unsigned long) yys->yyposn);
-  }
-
-  void
-  yypstates (yyGLRState* yyst)
+  yypstates (const yyGLRState* yyst)
   {
     if (yyst != YY_NULLPTR)
-      yy_yypstack (yyst);
+      yyst->yy_yypstack();
     else
       YYFPRINTF (stderr, "<null>");
     YYFPRINTF (stderr, "\n");
