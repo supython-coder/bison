@@ -1048,6 +1048,9 @@ yydefaultAction (yyStateNum yystate)
   return yydefact[yystate];
 }
 
+static inline int
+yyrhsLength (yyRuleNum yyrule);
+
 
 class yyGLRState {
  public:
@@ -1295,6 +1298,92 @@ struct yySemanticOption {
 
   size_t indexIn(yyGLRStackItem* array);
 
+  /** True iff YYY0 and YYY1 represent identical options at the top level.
+   *  That is, they represent the same rule applied to RHS symbols
+   *  that produce the same terminal symbols.  */
+  bool
+  isIdenticalTo (yySemanticOption* yyy1)
+  {
+    if (this->yyrule == yyy1->yyrule)
+      {
+        yyGLRState *yys0, *yys1;
+        int yyn;
+        for (yys0 = this->state(),
+             yys1 = yyy1->state(),
+             yyn = yyrhsLength (this->yyrule);
+             yyn > 0;
+             yys0 = yys0->pred(),
+             yys1 = yys1->pred(), yyn -= 1)
+          if (yys0->yyposn != yys1->yyposn)
+            return false;
+        return true;
+      }
+    else
+      return false;
+  }
+
+  /** Assuming identicalOptions (YYY0,YYY1), destructively merge the
+   *  alternative semantic values for the RHS-symbols of YYY1 and YYY0.  */
+  void
+  mergeWith (yySemanticOption* yyy1)
+  {
+    yyGLRState *yys0 = this->state();
+    yyGLRState *yys1 = yyy1->state();
+    for (int yyn = yyrhsLength (this->yyrule);
+         yyn > 0;
+         yyn -= 1,
+         yys0 = yys0->pred(),
+         yys1 = yys1->pred())
+      {
+        if (yys0 == yys1)
+          break;
+        else if (yys0->yyresolved)
+          {
+            yys1->yyresolved = true;
+            yys1->semanticVal() = yys0->semanticVal();
+          }
+        else if (yys1->yyresolved)
+          {
+            yys0->yyresolved = true;
+            yys0->semanticVal() = yys1->semanticVal();
+          }
+        else
+          {
+            yySemanticOption* yyz0prev = YY_NULLPTR;
+            yySemanticOption* yyz0 = yys0->firstVal();
+            yySemanticOption* yyz1 = yys1->firstVal();
+            while (true)
+              {
+                if (yyz1 == yyz0 || yyz1 == YY_NULLPTR)
+                  break;
+                else if (yyz0 == YY_NULLPTR)
+                  {
+                    if (yyz0prev != YY_NULLPTR) {
+                      yyz0prev->setNext(yyz1);
+                    } else {
+                      yys0->setFirstVal(yyz1);
+                    }
+                    break;
+                  }
+                else if (yyz0 < yyz1)
+                  {
+                    yySemanticOption* yyz = yyz0;
+                    if (yyz0prev != YY_NULLPTR) {
+                      yyz0prev->setNext(yyz1);
+                    } else {
+                      yys0->setFirstVal(yyz1);
+                    }
+                    yyz1 = yyz1->next();
+                    yyz0->setNext(yyz);
+                  }
+                yyz0prev = yyz0;
+                yyz0 = yyz0->next();
+              }
+            yys1->setFirstVal(yys0->firstVal());
+          }
+      }
+  }
+
   /** Rule number for this reduction */
   yyRuleNum yyrule;
 
@@ -1431,9 +1520,6 @@ void yySemanticOption::setNext(const yySemanticOption* s) {
   yynext = s ? asItem(this) - asItem(s) : 0;
 }
 
-
-static inline int
-yyrhsLength (yyRuleNum yyrule);
 
 static int
 yypreference (yySemanticOption* y0, yySemanticOption* y1);
@@ -1759,92 +1845,6 @@ struct yyStateStack {
   }
 
 #endif
-
-  /** True iff YYY0 and YYY1 represent identical options at the top level.
-   *  That is, they represent the same rule applied to RHS symbols
-   *  that produce the same terminal symbols.  */
-  bool
-  yyidenticalOptions (yySemanticOption* yyy0, yySemanticOption* yyy1)
-  {
-    if (yyy0->yyrule == yyy1->yyrule)
-      {
-        yyGLRState *yys0, *yys1;
-        int yyn;
-        for (yys0 = yyy0->state(),
-             yys1 = yyy1->state(),
-             yyn = yyrhsLength (yyy0->yyrule);
-             yyn > 0;
-             yys0 = yys0->pred(),
-             yys1 = yys1->pred(), yyn -= 1)
-          if (yys0->yyposn != yys1->yyposn)
-            return false;
-        return true;
-      }
-    else
-      return false;
-  }
-
-  /** Assuming identicalOptions (YYY0,YYY1), destructively merge the
-   *  alternative semantic values for the RHS-symbols of YYY1 and YYY0.  */
-  void
-  yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
-  {
-    yyGLRState *yys0 = yyy0->state();
-    yyGLRState *yys1 = yyy1->state();
-    for (int yyn = yyrhsLength (yyy0->yyrule);
-         yyn > 0;
-         yyn -= 1,
-         yys0 = yys0->pred(),
-         yys1 = yys1->pred())
-      {
-        if (yys0 == yys1)
-          break;
-        else if (yys0->yyresolved)
-          {
-            yys1->yyresolved = true;
-            yys1->semanticVal() = yys0->semanticVal();
-          }
-        else if (yys1->yyresolved)
-          {
-            yys0->yyresolved = true;
-            yys0->semanticVal() = yys1->semanticVal();
-          }
-        else
-          {
-            yySemanticOption* yyz0prev = YY_NULLPTR;
-            yySemanticOption* yyz0 = yys0->firstVal();
-            yySemanticOption* yyz1 = yys1->firstVal();
-            while (true)
-              {
-                if (yyz1 == yyz0 || yyz1 == YY_NULLPTR)
-                  break;
-                else if (yyz0 == YY_NULLPTR)
-                  {
-                    if (yyz0prev != YY_NULLPTR) {
-                      yyz0prev->setNext(yyz1);
-                    } else {
-                      yys0->setFirstVal(yyz1);
-                    }
-                    break;
-                  }
-                else if (yyz0 < yyz1)
-                  {
-                    yySemanticOption* yyz = yyz0;
-                    if (yyz0prev != YY_NULLPTR) {
-                      yyz0prev->setNext(yyz1);
-                    } else {
-                      yys0->setFirstVal(yyz1);
-                    }
-                    yyz1 = yyz1->next();
-                    yyz0->setNext(yyz);
-                  }
-                yyz0prev = yyz0;
-                yyz0 = yyz0->next();
-              }
-            yys1->setFirstVal(yys0->firstVal());
-          }
-      }
-  }
 
   YYRESULTTAG
   yyreportAmbiguity (yySemanticOption* yyx0,
@@ -2723,9 +2723,9 @@ struct yyGLRStack {
     for (yySemanticOption* yyp = yybest->next();
          yyp != YY_NULLPTR; )
       {
-        if (yystateStack.yyidenticalOptions (yybest, yyp))
+        if (yybest->isIdenticalTo (yyp))
           {
-            yystateStack.yymergeOptionSets (yybest, yyp);
+            yybest->mergeWith (yyp);
             yypPrev->setNext(yyp->next());
           }
         else
