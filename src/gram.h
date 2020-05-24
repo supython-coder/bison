@@ -1,6 +1,6 @@
 /* Data definitions for internal representation of Bison's input.
 
-   Copyright (C) 1984, 1986, 1989, 1992, 2001-2007, 2009-2015, 2018-2019
+   Copyright (C) 1984, 1986, 1989, 1992, 2001-2007, 2009-2015, 2018-2020
    Free Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
@@ -42,9 +42,9 @@
 
    Internally, we cannot use the number 0 for a rule because for
    instance RITEM stores both symbol (the RHS) and rule numbers: the
-   symbols are shorts >= 0, and rule number are stored negative.
+   symbols are integers >= 0, and rule numbers are stored negative.
    Therefore 0 cannot be used, since it would be both the rule number
-   0, and the token $end).
+   0, and the token $end.
 
    Actions are accessed via the rule number.
 
@@ -55,8 +55,7 @@
 
    RULES[R].lhs -- the symbol of the left hand side of rule R.
 
-   RULES[R].rhs -- the index in RITEM of the beginning of the portion
-   for rule R.
+   RULES[R].rhs -- the beginning of the portion of RITEM for rule R.
 
    RULES[R].prec -- the symbol providing the precedence level of R.
 
@@ -75,16 +74,16 @@
 
    RULES[R].line -- the line where R was defined.
 
-   RULES[R].useful -- whether the rule is used (i.e., false if thrown
-   away by reduce).
+   RULES[R].useful -- whether the rule is used.  False if thrown away
+   by reduce().
 
    The right hand side is stored as symbol numbers in a portion of
    RITEM.
 
    The length of the portion is one greater than the number of symbols
    in the rule's right hand side.  The last element in the portion
-   contains minus R, which identifies it as the end of a portion and
-   says which rule it is for.
+   contains -R, which identifies it as the end of a portion and says
+   which rule it is for.
 
    The portions of RITEM come in order of increasing rule number.
    NRITEMS is the total length of RITEM.  Each element of RITEM is
@@ -115,7 +114,7 @@ extern int nvars;
 typedef int item_number;
 # define ITEM_NUMBER_MAX INT_MAX
 extern item_number *ritem;
-extern unsigned nritems;
+extern int nritems;
 
 /* There is weird relationship between OT1H item_number and OTOH
    symbol_number and rule_number: we store the latter in
@@ -146,7 +145,6 @@ item_number_is_symbol_number (item_number i)
 /* Rule numbers.  */
 typedef int rule_number;
 # define RULE_NUMBER_MAX INT_MAX
-extern rule_number nrules;
 
 static inline item_number
 rule_number_as_item_number (rule_number r)
@@ -175,7 +173,7 @@ typedef struct
 {
   /* The number of the rule in the source.  It is usually the index in
      RULES too, except if there are useless rules.  */
-  rule_number user_number;
+  rule_number code;
 
   /* The index in RULES.  Usually the rule number in the source,
      except if some rules are useless.  */
@@ -193,6 +191,7 @@ typedef struct
   /* This symbol was attached to the rule via %prec. */
   sym_content *precsym;
 
+  /* Location of the rhs.  */
   location location;
   bool useful;
   bool is_predicate;
@@ -203,10 +202,12 @@ typedef struct
   int expected_rr_conflicts;
 
   const char *action;
-  location action_location;
+  location action_loc;
 } rule;
 
+/* The used rules (size NRULES).  */
 extern rule *rules;
+extern rule_number nrules;
 
 /* Get the rule associated to this item.  ITEM points inside RITEM.  */
 rule const *item_rule (item_number const *item);
@@ -261,7 +262,7 @@ extern symbol **symbols;
    by the user's yylex routine, it yields the internal token number
    used by the parser and throughout bison.  */
 extern symbol_number *token_translations;
-extern int max_user_token_number;
+extern int max_code;
 
 
 

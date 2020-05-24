@@ -1,6 +1,6 @@
 # Exercising Bison on conflicts.                         -*- Autotest -*-
 
-# Copyright (C) 2002-2005, 2007-2015, 2018-2019 Free Software
+# Copyright (C) 2002-2005, 2007-2015, 2018-2020 Free Software
 # Foundation, Inc.
 
 # This program is free software: you can redistribute it and/or modify
@@ -247,17 +247,17 @@ f: B
 
 AT_BISON_CHECK([-Wprecedence -fcaret -o input.c input.y], 0, [],
 [[input.y:7.1-9: warning: useless precedence and associativity for U [-Wprecedence]
- %nonassoc U
- ^~~~~~~~~
+    7 | %nonassoc U
+      | ^~~~~~~~~
 input.y:6.1-6: warning: useless precedence and associativity for V [-Wprecedence]
- %right V
- ^~~~~~
+    6 | %right V
+      | ^~~~~~
 input.y:5.1-5: warning: useless precedence and associativity for W [-Wprecedence]
- %left W
- ^~~~~
+    5 | %left W
+      | ^~~~~
 input.y:2.1-11: warning: useless precedence for Z [-Wprecedence]
- %precedence Z
- ^~~~~~~~~~~
+    2 | %precedence Z
+      | ^~~~~~~~~~~
 ]])
 
 AT_CLEANUP
@@ -278,17 +278,17 @@ AT_DATA([[input.y]],
 [[%expect 1
 %%
 exp: e 'e';
-e: 'e' | /* Nothing. */;
+e: 'e' | %empty;
 ]])
 
 AT_BISON_CHECK([-o input.c input.y], 0, [],
-[[input.y:4.9: warning: rule useless in parser due to conflicts [-Wother]
+[[input.y:4.10-15: warning: rule useless in parser due to conflicts [-Wother]
 ]])
 
 AT_BISON_CHECK([-fcaret -o input.c input.y], 0, [],
-[[input.y:4.9: warning: rule useless in parser due to conflicts [-Wother]
- e: 'e' | /* Nothing. */;
-         ^
+[[input.y:4.10-15: warning: rule useless in parser due to conflicts [-Wother]
+    4 | e: 'e' | %empty;
+      |          ^~~~~~
 ]])
 
 AT_CLEANUP
@@ -309,7 +309,6 @@ AT_DATA_GRAMMAR([input.y],
 #include <string.h>
 #include <assert.h>
 
-#define YYERROR_VERBOSE 1
 ]AT_YYERROR_DEFINE[
 /* The current argument. */
 static const char *input;
@@ -323,6 +322,8 @@ yylex (void)
 }
 
 %}
+
+%define parse.error verbose
 
 %nonassoc '<' '>'
 
@@ -345,7 +346,7 @@ m4_pushdef([AT_NONASSOC_AND_EOF_CHECK],
 [AT_BISON_CHECK([$1[ -o input.c input.y]])
 AT_COMPILE([input])
 
-m4_pushdef([AT_EXPECTING], [m4_if($2, [correct], [[, expecting $end]])])
+m4_pushdef([AT_EXPECTING], [m4_if($2, [correct], [[, expecting end of file]])])
 
 AT_PARSER_CHECK([input '0<0'])
 AT_PARSER_CHECK([input '0<0<0'], [1], [],
@@ -508,50 +509,64 @@ m4_pushdef([AT_PREVIOUS_STATE_INPUT], [[a]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[none]])
+                           [[end of file]], [[none]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %glr-parser]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[none]])
+                           [[end of file]], [[none]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %language "c++"]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[none]])
+                           [[end of file]], [[none]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %language "java"]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[end of input]], [[none]])
+                           [[end of file]], [[none]])
 
 # Even canonical LR doesn't foresee the error for 'a'!
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %define lr.default-reduction consistent]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[ab]])
+                           [[end of file]], [[ab]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %define lr.default-reduction accepting]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[ab]])
+                           [[end of file]], [[ab]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type canonical-lr]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[ab]])
+                           [[end of file]], [[ab]])
 
-# Only LAC gets it right.
+# Only LAC gets it right.  In C.
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type canonical-lr
                              %define parse.lac full]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[b]])
+                           [[end of file]], [[b]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type ielr
                              %define parse.lac full]],
                            [AT_PREVIOUS_STATE_GRAMMAR],
                            [AT_PREVIOUS_STATE_INPUT],
-                           [[$end]], [[b]])
+                           [[end of file]], [[b]])
+
+# Only LAC gets it right.  In C++.
+AT_CONSISTENT_ERRORS_CHECK([[%language "c++"
+                             %define lr.type canonical-lr
+                             %define parse.lac full]],
+                           [AT_PREVIOUS_STATE_GRAMMAR],
+                           [AT_PREVIOUS_STATE_INPUT],
+                           [[end of file]], [[b]])
+AT_CONSISTENT_ERRORS_CHECK([[%language "c++"
+                             %define lr.type ielr
+                             %define parse.lac full]],
+                           [AT_PREVIOUS_STATE_GRAMMAR],
+                           [AT_PREVIOUS_STATE_INPUT],
+                           [[end of file]], [[b]])
 
 m4_popdef([AT_PREVIOUS_STATE_GRAMMAR])
 m4_popdef([AT_PREVIOUS_STATE_INPUT])
@@ -623,11 +638,11 @@ AT_CONSISTENT_ERRORS_CHECK([[%define lr.default-reduction consistent]],
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.default-reduction accepting]],
                            [AT_USER_ACTION_GRAMMAR],
                            [AT_USER_ACTION_INPUT],
-                           [[$end]], [[a]])
+                           [[end of file]], [[a]])
 AT_CONSISTENT_ERRORS_CHECK([[%define lr.type canonical-lr]],
                            [AT_USER_ACTION_GRAMMAR],
                            [AT_USER_ACTION_INPUT],
-                           [[$end]], [[a]])
+                           [[end of file]], [[a]])
 
 AT_CONSISTENT_ERRORS_CHECK([[%define parse.lac full]],
                            [AT_USER_ACTION_GRAMMAR],
@@ -637,7 +652,7 @@ AT_CONSISTENT_ERRORS_CHECK([[%define parse.lac full
                              %define lr.default-reduction accepting]],
                            [AT_USER_ACTION_GRAMMAR],
                            [AT_USER_ACTION_INPUT],
-                           [[$end]], [[none]])
+                           [[end of file]], [[none]])
 
 m4_popdef([AT_USER_ACTION_GRAMMAR])
 m4_popdef([AT_USER_ACTION_INPUT])
@@ -1005,6 +1020,66 @@ input.y:12.3-18: warning: rule useless in parser due to conflicts [-Wother]
 AT_CLEANUP
 
 
+## ---------------------------------------- ##
+## Syntax error in consistent error state.  ##
+## ---------------------------------------- ##
+
+# AT_TEST(SKELETON-NAME)
+# ----------------------
+# Make sure yysyntax_error does nothing silly when called on yytoken
+# == YYEMPTY.
+
+m4_pushdef([AT_TEST],
+[AT_SETUP([Syntax error in consistent error state: $1])
+
+AT_BISON_OPTION_PUSHDEFS([%skeleton "$1"])
+
+AT_DATA_GRAMMAR([input.y],
+[[%define parse.error verbose
+%skeleton "$1"
+%%
+%nonassoc 'a';
+
+start: 'a' consistent-error-on-a-a 'a';
+
+consistent-error-on-a-a:
+    'a' default-reduction
+  | 'a' default-reduction 'a'
+  ;
+
+default-reduction: %empty;
+
+%code {
+  #include <stdio.h>
+  ]AT_YYERROR_DECLARE[
+  ]AT_YYLEX_DECLARE[
+};
+%%
+]AT_YYERROR_DEFINE[
+]AT_YYLEX_DEFINE("aa")[
+]AT_MAIN_DEFINE[
+]])
+
+AT_BISON_CHECK([-o input.AT_LANG_EXT input.y], 0, [],
+[[input.y:17.5-25: warning: rule useless in parser due to conflicts [-Wother]
+input.y:18.5-29: warning: rule useless in parser due to conflicts [-Wother]
+]])
+AT_LANG_COMPILE([input])
+AT_PARSER_CHECK([[input]], 1, [],
+[[syntax error
+]])
+
+AT_BISON_OPTION_POPDEFS
+AT_CLEANUP
+])
+
+## FIXME: test Java and D.
+m4_map_args([AT_TEST], [yacc.c], [glr.c], [lalr1.cc], [glr.cc])
+
+m4_popdef([AT_TEST])
+
+
+
 ## -------------------------------- ##
 ## Defaulted Conflicted Reduction.  ##
 ## -------------------------------- ##
@@ -1344,8 +1419,8 @@ b: %expect-rr 4
 
 AT_BISON_CHECK([-fcaret -o input.c input.y], 1, [],
 [[input.y:12.4-15: error: reduce/reduce conflicts for rule 8: 3 found, 4 expected
- b: %expect-rr 4
-    ^~~~~~~~~~~~
+   12 | b: %expect-rr 4
+      |    ^~~~~~~~~~~~
 ]])
 AT_CLEANUP
 
@@ -1373,8 +1448,8 @@ b: %expect-rr 2
 
 AT_BISON_CHECK([-fcaret -o input.c input.y], 1, [],
 [[input.y:12.4-15: error: reduce/reduce conflicts for rule 8: 3 found, 2 expected
- b: %expect-rr 2
-    ^~~~~~~~~~~~
+   12 | b: %expect-rr 2
+      |    ^~~~~~~~~~~~
 ]])
 AT_CLEANUP
 
@@ -1526,7 +1601,7 @@ input.y: warning: 1 reduce/reduce conflict [-Wconflicts-rr]
 input.y:12.5-20: warning: rule useless in parser due to conflicts [-Wother]
 input.y:20.5-20: warning: rule useless in parser due to conflicts [-Wother]
 input.y:21.4: warning: rule useless in parser due to conflicts [-Wother]
-input.y:25.13: warning: rule useless in parser due to conflicts [-Wother]
+input.y:25.14: warning: rule useless in parser due to conflicts [-Wother]
 input.y:25.16: warning: rule useless in parser due to conflicts [-Wother]
 input.y:31.5-7: warning: rule useless in parser due to conflicts [-Wother]
 input.y:32.4: warning: rule useless in parser due to conflicts [-Wother]

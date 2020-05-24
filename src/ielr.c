@@ -1,6 +1,6 @@
 /* IELR main implementation.
 
-   Copyright (C) 2009-2015, 2018-2019 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015, 2018-2020 Free Software Foundation, Inc.
 
    This file is part of Bison, the GNU Compiler Compiler.
 
@@ -50,7 +50,7 @@ lr_type_get (void)
 {
   char *type = muscle_percent_define_get ("lr.type");
   LrType res;
-  if (STREQ (type, "lr(0)"))
+  if (STREQ (type, "lr""(0)"))
     res = LR_TYPE__LR0;
   else if (STREQ (type, "lalr"))
     res = LR_TYPE__LALR;
@@ -78,7 +78,7 @@ static bitset
 ielr_compute_ritem_sees_lookahead_set (void)
 {
   bitset result = bitset_create (nritems, BITSET_FIXED);
-  unsigned i = nritems-1;
+  int i = nritems-1;
   while (0 < i)
     {
       --i;
@@ -196,10 +196,7 @@ ielr_compute_internal_follow_edges (bitset ritem_sees_lookahead_set,
   relation_transpose (edgesp, ngotos);
 
   if (trace_flag & trace_ielr)
-    {
-      fprintf (stderr, "internal_follow_edges:\n");
-      relation_print (*edgesp, ngotos, NULL, stderr);
-    }
+    relation_print ("internal_follow_edges", *edgesp, ngotos, NULL, stderr);
 }
 
 /**
@@ -304,8 +301,7 @@ ielr_compute_always_follows (goto_number ***edgesp,
 
   if (trace_flag & trace_ielr)
     {
-      fprintf (stderr, "always follow edges:\n");
-      relation_print (*edgesp, ngotos, NULL, stderr);
+      relation_print ("always follow edges", *edgesp, ngotos, NULL, stderr);
       fprintf (stderr, "always_follows:\n");
       debug_bitsetv (*always_followsp);
     }
@@ -422,7 +418,7 @@ ielr_item_has_lookahead (state *s, symbol_number lhs, size_t item,
              top-level invocation), go get it.  */
           if (!lhs)
             {
-              unsigned i;
+              int i;
               for (i = s->items[item];
                    !item_number_is_rule_number (ritem[i]);
                    ++i)
@@ -500,7 +496,7 @@ ielr_compute_annotation_lists (bitsetv follow_kernel_items,
   AnnotationIndex *annotation_counts =
     xnmalloc (nstates, sizeof *annotation_counts);
   ContributionIndex max_contributions = 0;
-  unsigned total_annotations = 0;
+  int total_annotations = 0;
 
   *inadequacy_listsp = xnmalloc (nstates, sizeof **inadequacy_listsp);
   *annotation_listsp = xnmalloc (nstates, sizeof **annotation_listsp);
@@ -637,7 +633,7 @@ ielr_compute_lookaheads (bitsetv follow_kernel_items, bitsetv always_follows,
         {
           if (item_number_is_rule_number (ritem[t->items[t_item] - 2]))
             {
-              unsigned rule_item;
+              int rule_item;
               for (rule_item = t->items[t_item];
                    !item_number_is_rule_number (ritem[rule_item]);
                    ++rule_item)
