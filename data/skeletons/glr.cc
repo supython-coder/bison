@@ -369,6 +369,23 @@ class StrongIndexAlias
     /// \param msg    a description of the syntax error.
     virtual void error (]b4_locations_if([[const location_type& loc, ]])[const std::string& msg);
 
+]b4_parse_error_bmatch(
+[custom\|detailed],
+[[    /// The user-facing name of the symbol whose (internal) number is
+    /// YYSYMBOL.  No bounds checking.
+    static const char *symbol_name (symbol_kind_type yysymbol);]],
+[simple],
+[[#if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+    /// The user-facing name of the symbol whose (internal) number is
+    /// YYSYMBOL.  No bounds checking.
+    static const char *symbol_name (symbol_kind_type yysymbol);
+#endif // #if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+]],
+[verbose],
+[[    /// The user-facing name of the symbol whose (internal) number is
+    /// YYSYMBOL.  No bounds checking.
+    static std::string symbol_name (symbol_kind_type yysymbol);]])[
+
 # if ]b4_api_PREFIX[DEBUG
   public:
     /// \brief Report a symbol value on the debug stream.
