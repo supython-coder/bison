@@ -1054,7 +1054,7 @@ class yyGLRState {
   }
 #endif
 
-  size_t indexIn(yyGLRStackItem* array);
+  ptrdiff_t indexIn(yyGLRStackItem* array);
 
   yyGLRStackItem* asItem() {
     return asItem(this);
@@ -1241,7 +1241,7 @@ struct yySemanticOption {
   yySemanticOption* next();
   void setNext(const yySemanticOption* s);
 
-  size_t indexIn(yyGLRStackItem* array);
+  ptrdiff_t indexIn(yyGLRStackItem* array);
 
   /** True iff YYY0 and YYY1 represent identical options at the top level.
    *  That is, they represent the same rule applied to RHS symbols
@@ -1437,11 +1437,11 @@ void yyGLRState::setFirstVal(const yySemanticOption* option) {
   yyfirstVal = option ? asItem(this) - asItem(option) : 0;
 }
 
-size_t yyGLRState::indexIn(yyGLRStackItem* array) {
+ptrdiff_t yyGLRState::indexIn(yyGLRStackItem* array) {
   return asItem(this) - array;
 }
 
-size_t yySemanticOption::indexIn(yyGLRStackItem* array) {
+ptrdiff_t yySemanticOption::indexIn(yyGLRStackItem* array) {
   return asItem(this) - array;
 }
 
