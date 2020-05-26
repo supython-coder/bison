@@ -171,7 +171,6 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
     ]b4_symbol_actions([printer])[
   }
 
-
   void
   ]b4_parser_class[::yy_symbol_print_ (symbol_kind_type yykind,
                            const semantic_type* yyvaluep]b4_locations_if([[,
@@ -182,6 +181,20 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
                << *yylocationp << ": "]])[;
     yy_symbol_value_print_ (yykind, yyvaluep]b4_locations_if([[, yylocationp]])[);
     *yycdebug_ << ')';
+  }
+
+  void
+  ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
+                           const semantic_type* yyvaluep]b4_locations_if([[,
+                           const location_type* yylocationp]])[)
+  {
+    if (!yymsg)
+      yymsg = "Deleting";
+    YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
+
+    YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
+    ]b4_symbol_actions([destructor])[
+    YY_IGNORE_MAYBE_UNINITIALIZED_END
   }
 
   std::ostream&
@@ -407,10 +420,19 @@ class StrongIndexAlias
     virtual void yy_symbol_print_ (symbol_kind_type yykind,
                                    const semantic_type* yyvaluep]b4_locations_if([[,
                                    const location_type* yylocationp]])[) const;
+
   private:
     /// Debug stream.
     std::ostream* yycdebug_;
 #endif
+
+    /// \brief Reclaim the memory associated to a symbol.
+    /// \param yymsg     Why this token is reclaimed.
+    ///                  If null, print nothing.
+    /// \param yysym     The symbol.
+    void yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
+                      const semantic_type* yyvaluep]b4_locations_if([[,
+                      const location_type* yylocationp]])[) const;
 
 ]b4_parse_param_vars[
   };
@@ -935,8 +957,6 @@ yyStateSetIndex yycreateStateSetIndex(ptrdiff_t value) {
 
 #define yytable_value_is_error(Yytable_value) \
   ]b4_table_value_equals([[table]], [[Yytable_value]], [b4_table_ninf], [YYTABLE_NINF])[
-
-]b4_yydestruct_define[
 
 ]m4_define([b4_yygetToken_call],
            [[yygetToken (&yychar][]b4_pure_if([, yystackp])[]b4_user_args[)]])[
@@ -1470,8 +1490,8 @@ void yySemanticOption::setNext(const yySemanticOption* s) {
 void yyGLRState::destroy (char const *yymsg]b4_user_formals[)
 {
   if (yyresolved)
-    yydestruct (yymsg, yystos[yylrState],
-                &semanticVal()]b4_locuser_args([&yyloc])[);
+    yyparser.yy_destroy_ (yymsg, YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yylrState]),
+                &semanticVal()]b4_locations_if([, &yyloc])[);
   else
     {
 #if ]b4_api_PREFIX[DEBUG
@@ -1481,7 +1501,7 @@ void yyGLRState::destroy (char const *yymsg]b4_user_formals[)
             YYFPRINTF (stderr, "%s unresolved", yymsg);
           else
             YYFPRINTF (stderr, "%s incomplete", yymsg);
-          YY_SYMBOL_PRINT ("", yystos[yylrState], YY_NULLPTR, &yyloc);
+          YY_SYMBOL_PRINT ("", YY_CAST (symbol_kind_type, yystos[yylrState]), YY_NULLPTR, &yyloc);
         }
 #endif
 
@@ -1777,7 +1797,7 @@ struct yyStateStack {
       {
         YYFPRINTF (stderr, "   $%d = ", yyi + 1);
         yy_symbol_print (stderr,
-                         yystos[yyvsp[yyi - yynrhs + 1].getState().yylrState],
+                         YY_CAST (symbol_kind_type, yystos[yyvsp[yyi - yynrhs + 1].getState().yylrState]),
                          &yyvsp[yyi - yynrhs + 1].getState().semanticVal()]b4_locations_if([,
                          &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
                          b4_user_args[);
@@ -1920,10 +1940,10 @@ struct yyStateStack {
           {
             if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
               YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                         yytokenName (yystos[yystates[yyi]->yylrState]));
+                         yytokenName (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
             else
               YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
-                         yytokenName (yystos[yystates[yyi]->yylrState]),
+                         yytokenName (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
                          (unsigned long) (yystates[yyi-1]->yyposn + 1),
                          (unsigned long) yystates[yyi]->yyposn);
           }
@@ -1958,8 +1978,8 @@ struct yyGLRStack {
   ~yyGLRStack ()
   {
     if (yychar != ]b4_symbol(-2, id)[)
-      yydestruct ("Cleanup: discarding lookahead",
-                  YYTRANSLATE (yychar), &yylval]b4_locuser_args([&yylloc])[);
+      yyparser.yy_destroy_ ("Cleanup: discarding lookahead",
+                  YYTRANSLATE (yychar), &yylval]b4_locations_if([, &yylloc])[);
     popall();
   }
 
@@ -2189,8 +2209,8 @@ struct yyGLRStack {
               yyerror_range[2].getState().yyloc = yylloc;
               YYLLOC_DEFAULT ((yys->yyloc), yyerror_range, 2);]])[
               yytoken = YYTRANSLATE (yychar);
-              yydestruct ("Error: discarding",
-                          yytoken, &yylval]b4_locuser_args([&yylloc])[);
+              yyparser.yy_destroy_ ("Error: discarding",
+                          yytoken, &yylval]b4_locations_if([, &yylloc])[);
               yychar = ]b4_symbol(-2, id)[;
             }
           yytoken = ]b4_yygetToken_call[;
@@ -2227,7 +2247,7 @@ struct yyGLRStack {
                 YYLTYPE yyerrloc;
                 yyerror_range[2].getState().yyloc = yylloc;
                 YYLLOC_DEFAULT (yyerrloc, (yyerror_range), 2);]])[
-                YY_SYMBOL_PRINT ("Shifting", yystos[yytable[yyj]],
+                YY_SYMBOL_PRINT ("Shifting", YY_CAST (symbol_kind_type, yystos[yytable[yyj]]),
                                  &yylval, &yyerrloc);
                 yyglrShift (yycreateStateSetIndex(0), yytable[yyj],
                             yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
@@ -2705,9 +2725,9 @@ struct yyGLRStack {
                   yyflag = yyresolveAction (yyp, &yysval_other]b4_locuser_args([&yydummy])[);
                   if (yyflag != yyok)
                     {
-                      yydestruct ("Cleanup: discarding incompletely merged value for",
-                                  yystos[yys->yylrState],
-                                  &yysval]b4_locuser_args[);
+                      yyparser.yy_destroy_ ("Cleanup: discarding incompletely merged value for",
+                                  YY_CAST (symbol_kind_type, yystos[yys->yylrState]),
+                                  &yysval]b4_locations_if([, yylocp])[);
                       break;
                     }
                   yyuserMerge (yymerger[yyp->yyrule], &yysval, &yysval_other);
