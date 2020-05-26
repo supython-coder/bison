@@ -1947,11 +1947,12 @@ struct yyStateStack {
 #define yystackp this
 struct yyGLRStack {
 
-  yyGLRStack(size_t yysize, ]b4_parse_param_decl[) :
-    yyerrState(0),
-    yyerrcnt(0),
-    yyrawchar(0),
-    yystateStack(yysize),]b4_parse_param_cons[
+  yyGLRStack(size_t yysize, ]b4_parse_param_decl[)
+    : yyerrState(0)
+    , yystateStack(yysize)
+    , yyerrcnt(0)
+    , yyrawchar(0)
+    , ]b4_parse_param_cons[
   {}
 
   ~yyGLRStack ()
