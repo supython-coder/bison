@@ -1154,7 +1154,7 @@ class yyGLRStateSet {
   inline void
   yyremoveDeletes ()
   {
-    size_t newsize = yystates.size();
+    ptrdiff_t newsize = YY_CAST(ptrdiff_t, yystates.size());
     /* j is the number of live stacks we have seen.  */
     for (size_t i = 0, j = 0; i < yystates.size(); ++i)
       {
