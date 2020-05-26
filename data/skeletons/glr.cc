@@ -929,10 +929,10 @@ yyStateSetIndex yycreateStateSetIndex(size_t value) {
 }
 
 #define yypact_value_is_default(Yystate) \
-  ]b4_table_value_equals([[pact]], [[Yystate]], [b4_pact_ninf])[
+  ]b4_table_value_equals([[pact]], [[Yystate]], [b4_pact_ninf], [YYPACT_NINF])[
 
 #define yytable_value_is_error(Yytable_value) \
-  ]b4_table_value_equals([[table]], [[Yytable_value]], [b4_table_ninf])[
+  ]b4_table_value_equals([[table]], [[Yytable_value]], [b4_table_ninf], [YYTABLE_NINF])[
 
 ]b4_yydestruct_define[
 
