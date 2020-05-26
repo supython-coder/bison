@@ -229,6 +229,15 @@ b4_percent_code_get([[requires]])[
 #include <string>
 #include <vector>
 
+]b4_cxx_portability[
+]m4_ifdef([b4_location_include],
+          [[# include ]b4_location_include])[
+]b4_variant_if([b4_variant_includes])[
+
+]b4_attribute_define[
+]b4_cast_define[
+]b4_null_define[
+
 template <typename Parameter>
 class StrongIndexAlias
 {
@@ -287,19 +296,12 @@ class StrongIndexAlias
   }
 
  private:
-  static const size_t INVALID_INDEX = ((size_t) -1);
+  static const size_t INVALID_INDEX = YY_CAST (size_t, -1);
 
   // WARNING: 0-initialized.
   size_t value_;
 };
 
-]b4_cxx_portability[
-]m4_ifdef([b4_location_include],
-          [[# include ]b4_location_include])[
-]b4_variant_if([b4_variant_includes])[
-
-]b4_attribute_define[
-]b4_null_define[
 
 // This skeleton is based on C, yet compiles it as C++.
 // So expect warnings about C style casts.
@@ -337,6 +339,7 @@ class StrongIndexAlias
   {
   public:
 ]b4_public_types_declare[
+]b4_symbol_type_define[
 
     /// Build a parser object.
     ]b4_parser_class[ (]b4_parse_param_decl[);
@@ -643,14 +646,6 @@ b4_copyright([Skeleton implementation for Bison GLR parsers in C],
 ]b4_defines_if([[#include "@basename(]b4_spec_defines_file[@)"]],
                [b4_shared_declarations])[
 
-/* Enabling verbose error messages.  */
-#ifdef YYERROR_VERBOSE
-# undef YYERROR_VERBOSE
-# define YYERROR_VERBOSE 1
-#else
-# define YYERROR_VERBOSE ]b4_error_verbose_if([1], [0])[
-#endif
-
 /* Default (constant) value used for initialization for null
    right-hand sides.  Unlike the standard yacc.c template, here we set
    the default value of $$ to a zeroed-out value.  Since the default
@@ -684,7 +679,7 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
 # define YYMALLOC malloc
 #endif
 
-#define YYSIZEMAX ((size_t) -1)
+#define YYSIZEMAX YY_CAST(size_t, -1)
 
 #ifndef YYSETJMP
 # include <setjmp.h>
@@ -755,15 +750,6 @@ static const ]b4_int_type_for([b4_translate])[ yytranslate[] =
 static const ]b4_int_type_for([b4_rline])[ yyrline[] =
 {
   ]b4_rline[
-};
-#endif
-
-#if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE || ]b4_token_table_flag[
-/* YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
-   First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
-static const char *const yytname[] =
-{
-  ]b4_tname[
 };
 #endif
 
@@ -838,9 +824,6 @@ YYLTYPE yylloc;]])[
 
 int yynerrs;
 int yychar;])[
-
-static const int YYEOF = 0;
-static const int YYEMPTY = -2;
 
 typedef enum { yyok, yyaccept, yyabort, yyerr } YYRESULTTAG;
 
@@ -921,90 +904,6 @@ static void yypdumpstack (struct yyGLRStack* yystackp)
 #  define YYSTACKEXPANDABLE 1
 #endif
 
-#if YYERROR_VERBOSE
-
-# ifndef yystpcpy
-#  if defined __GLIBC__ && defined _STRING_H && defined _GNU_SOURCE
-#   define yystpcpy stpcpy
-#  else
-/* Copy YYSRC to YYDEST, returning the address of the terminating '\0' in
-   YYDEST.  */
-static char *
-yystpcpy (char *yydest, const char *yysrc)
-{
-  char *yyd = yydest;
-  const char *yys = yysrc;
-
-  while ((*yyd++ = *yys++) != '\0')
-    continue;
-
-  return yyd - 1;
-}
-#  endif
-# endif
-
-# ifndef yytnamerr
-template <bool YYCOPY>
-static size_t
-yytnamerr_count (char *yyres, const char *yystr)
-{
-  size_t yyn = 0;
-  char const *yyp = yystr;
-
-  for (;;)
-    switch (*++yyp)
-      {
-      case '\'':
-      case ',':
-        return -1;
-
-      case '\\':
-        if (*++yyp != '\\')
-          return -1;
-        // fall-through;
-
-      default:
-        if (YYCOPY)
-          yyres[yyn] = *yyp;
-        yyn++;
-        break;
-
-      case '"':
-        if (YYCOPY)
-          yyres[yyn] = '\0';
-        return yyn;
-      }
-  // Unreachable.
-  return -1;
-}
-
-/* Copy to YYRES the contents of YYSTR after stripping away unnecessary
-   quotes and backslashes, so that it's suitable for yyerror.  The
-   heuristic is that double-quoting is unnecessary unless the string
-   contains an apostrophe, a comma, or backslash (other than
-   backslash-backslash).  YYSTR is taken from yytname.  If YYRES is
-   null, do not copy; instead, return the length of what the result
-   would have been.  */
-static size_t
-yytnamerr (char *yyres, const char *yystr)
-{
-  if (*yystr == '"')
-    {
-      size_t count = (yyres == YY_NULLPTR)
-        ? yytnamerr_count<true>(yyres, yystr)
-        : yytnamerr_count<false>(yyres, yystr);
-      if (count != -1) return count;
-    }
-
-  if (yyres == YY_NULLPTR)
-    return strlen (yystr);
-
-  return (size_t) (yystpcpy (yyres, yystr) - yyres);
-}
-# endif
-
-#endif /* !YYERROR_VERBOSE */
-
 /** State numbers, as in LALR(1) machine */
 typedef int yyStateNum;
 
@@ -1034,11 +933,6 @@ yyStateSetIndex yycreateStateSetIndex(size_t value) {
 
 #define yytable_value_is_error(Yytable_value) \
   ]b4_table_value_equals([[table]], [[Yytable_value]], [b4_table_ninf])[
-
-#if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
-static inline const char*
-yytokenName (yySymbol yytoken);
-#endif
 
 ]b4_yydestruct_define[
 
@@ -1313,7 +1207,7 @@ class yyGLRStateSet {
   /** During nondeterministic operation, yylookaheadNeeds tracks which
    *  stacks have actually needed the current lookahead.  During deterministic
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
-   *  duplicate yychar != YYEMPTY.  */
+   *  duplicate yychar != ]b4_symbol(-2, id)[.  */
   std::vector<bool> yylookaheadNeeds;
 
   /** The last stack we invalidated.  */
@@ -2056,7 +1950,7 @@ struct yyGLRStack {
 
   ~yyGLRStack ()
   {
-    if (yychar != YYEMPTY)
+    if (yychar != ]b4_symbol(-2, id)[)
       yydestruct ("Cleanup: discarding lookahead",
                   YYTRANSLATE (yychar), &yylval]b4_locuser_args([&yylloc])[);
     popall();
@@ -2106,7 +2000,7 @@ struct yyGLRStack {
                        yyGLRState* yyrhs, yyRuleNum yyrule)
   {
     yySemanticOption& yynewOption =
-      yystateStack.yynewSemanticOption(yySemanticOption(yyrule, YYEMPTY));
+      yystateStack.yynewSemanticOption(yySemanticOption(yyrule, ]b4_symbol(-2, id)[));
     yynewOption.setState(yyrhs);
     yynewOption.setNext(yystate->firstVal());
     if (yystateStack.yytops.lookaheadNeeds(yyk))
@@ -2130,11 +2024,11 @@ struct yyGLRStack {
   {
     if (yyerrState != 0)
       return;
-#if ! YYERROR_VERBOSE
-    yyerror (]b4_lyyerror_args[YY_("syntax error"));
-#else
-    {
-    yySymbol yytoken = yychar == YYEMPTY ? YYEMPTY : YYTRANSLATE (yychar);
+]b4_parse_error_bmatch(
+[simple],
+[[    yyerror (]b4_lyyerror_args[YY_("syntax error"));]],
+[[    {
+    yySymbol yytoken = yychar == ]b4_symbol(-2, id)[ ? ]b4_symbol(-2, kind)[ : YYTRANSLATE (yychar);
     size_t yysize0 = yytnamerr (YY_NULLPTR, yytokenName (yytoken));
     size_t yysize = yysize0;
     bool yysize_overflow = false;
@@ -2171,7 +2065,7 @@ struct yyGLRStack {
          one exception: it will still contain any token that will not be
          accepted due to an error action in a later state.
     */
-    if (yytoken != YYEMPTY)
+    if (yytoken != ]b4_symbol(-2, kind)[)
       {
         int yyn = yypact[firstTopState()->yylrState];
         yyarg[yycount++] = yytokenName (yytoken);
@@ -2186,7 +2080,7 @@ struct yyGLRStack {
             int yyxend = yychecklim < YYNTOKENS ? yychecklim : YYNTOKENS;
             int yyx;
             for (yyx = yyxbegin; yyx < yyxend; ++yyx)
-              if (yycheck[yyx + yyn] == yyx && yyx != YYTERROR
+              if (yycheck[yyx + yyn] == yyx && yyx != ]b4_symbol(1, kind)[
                   && !yytable_value_is_error (yytable[yyx + yyn]))
                 {
                   if (yycount == YYERROR_VERBOSE_ARGS_MAXIMUM)
@@ -2258,7 +2152,7 @@ struct yyGLRStack {
         yyMemoryExhausted();
       }
     }
-#endif /* YYERROR_VERBOSE */
+]])[
     yynerrs += 1;
   }
 
@@ -2278,7 +2172,7 @@ struct yyGLRStack {
           int yyj;
           if (yychar == YYEOF)
             yyFail (YY_NULLPTR][]b4_lpure_args[);
-          if (yychar != YYEMPTY)
+          if (yychar != ]b4_symbol(-2, id)[)
             {]b4_locations_if([[
               /* We throw away the lookahead, but the error range
                  of the shifted error token must take it into account.  */
@@ -2290,7 +2184,7 @@ struct yyGLRStack {
               yytoken = YYTRANSLATE (yychar);
               yydestruct ("Error: discarding",
                           yytoken, &yylval]b4_locuser_args([&yylloc])[);
-              yychar = YYEMPTY;
+              yychar = ]b4_symbol(-2, id)[;
             }
           yytoken = ]b4_yygetToken_call[;
           yyj = yypact[firstTopState()->yylrState];
@@ -2463,7 +2357,7 @@ struct yyGLRStack {
   # undef YYRECOVERING
   # define YYRECOVERING() (yyerrState != 0)
   # undef yyclearin
-  # define yyclearin (yychar = YYEMPTY)
+  # define yyclearin (yychar = ]b4_symbol(-2, id)[)
   # undef YYBACKUP
   # define YYBACKUP(Token, Value)                                              \
     return yyerror (]b4_yyerror_args[YY_("syntax error: cannot back up")),     \
@@ -2915,25 +2809,13 @@ struct yyGLRStack {
 #undef YYSTACKEXPANDABLE
 
 
-#if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
-/** A printable representation of TOKEN.  */
-static inline const char*
-yytokenName (yySymbol yytoken)
-{
-  if (yytoken == YYEMPTY)
-    return "";
-
-  return yytname[yytoken];
-}
-#endif
-
 /** If yychar is empty, fetch the next token.  */
 static inline yySymbol
 yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[)
 {
   yySymbol yytoken;
 ]b4_parse_param_use()dnl
-[  if (*yycharp == YYEMPTY)
+[  if (*yycharp == ]b4_symbol(-2, id)[)
     {
       YYDPRINTF ((stderr, "Reading a token: "));
 #if YY_EXCEPTIONS
@@ -3093,7 +2975,7 @@ yypreference (yySemanticOption* y0, yySemanticOption* y1)
 
   YYDPRINTF ((stderr, "Starting parse\n"));
 
-  yychar = YYEMPTY;
+  yychar = ]b4_symbol(-2, id)[;
   yylval = yyval_default;]b4_locations_if([
   yylloc = yyloc_default;])[
 ]m4_ifdef([b4_initial_action], [
@@ -3144,7 +3026,7 @@ b4_dollar_popdef])[]dnl
               if (yyisShiftAction (yyaction))
                 {
                   YY_SYMBOL_PRINT ("Shifting", yytoken, &yylval, &yylloc);
-                  yychar = YYEMPTY;
+                  yychar = ]b4_symbol(-2, id)[;
                   yyposn += 1;
                   yystack.yyglrShift (yycreateStateSetIndex(0), yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
                   if (0 < yystack.yyerrState)
@@ -3169,7 +3051,7 @@ b4_dollar_popdef])[]dnl
           yySymbol yytoken_to_shift;
 
           for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
-            yystackp->yystateStack.yytops.setLookaheadNeeds(yys, yychar != YYEMPTY);
+            yystackp->yystateStack.yytops.setLookaheadNeeds(yys, yychar != ]b4_symbol(-2, id)[);
 
           /* yyprocessOneStack returns one of three things:
 
@@ -3207,11 +3089,11 @@ b4_dollar_popdef])[]dnl
 
           /* If any yyglrShift call fails, it will fail after shifting.  Thus,
              a copy of yylval will already be on stack 0 in the event of a
-             failure in the following loop.  Thus, yychar is set to YYEMPTY
+             failure in the following loop.  Thus, yychar is set to ]b4_symbol(-2, id)[
              before the loop to make sure the user destructor for yylval isn't
              called twice.  */
           yytoken_to_shift = YYTRANSLATE (yychar);
-          yychar = YYEMPTY;
+          yychar = ]b4_symbol(-2, id)[;
           yyposn += 1;
           for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
             {
