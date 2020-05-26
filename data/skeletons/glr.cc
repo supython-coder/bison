@@ -242,27 +242,29 @@ template <typename Parameter>
 class StrongIndexAlias
 {
  public:
-  static StrongIndexAlias create(size_t value) {
+  static StrongIndexAlias create(ptrdiff_t value) {
     StrongIndexAlias result;
     result.value_ = value;
     return result;
   }
 
-  size_t const& get() const {return value_; }
+  ptrdiff_t const& get() const {return value_; }
 
-  StrongIndexAlias operator+(size_t other) const {
+  size_t const& uget() const {return YY_CAST(size_t, value_); }
+
+  StrongIndexAlias operator+(ptrdiff_t other) const {
     return StrongIndexAlias(get() + other);
   }
 
-  void operator+=(size_t other) {
+  void operator+=(ptrdiff_t other) {
     value_ += other;
   }
 
-  StrongIndexAlias operator-(size_t other) {
+  StrongIndexAlias operator-(ptrdiff_t other) {
     return StrongIndexAlias(get() - other);
   }
 
-  void operator-=(size_t other) {
+  void operator-=(ptrdiff_t other) {
     value_ -= other;
   }
 
@@ -296,10 +298,10 @@ class StrongIndexAlias
   }
 
  private:
-  static const size_t INVALID_INDEX = YY_CAST (size_t, -1);
+  static const size_t INVALID_INDEX = PTRDIFF_MAX;
 
   // WARNING: 0-initialized.
-  size_t value_;
+  ptrdiff_t value_;
 };
 
 
@@ -924,7 +926,7 @@ struct yyGLRStack;
 
 typedef StrongIndexAlias<struct yyGLRStateSetTag> yyStateSetIndex;
 
-yyStateSetIndex yycreateStateSetIndex(size_t value) {
+yyStateSetIndex yycreateStateSetIndex(ptrdiff_t value) {
   return yyStateSetIndex::create(value);
 }
 
@@ -1098,11 +1100,11 @@ class yyGLRStateSet {
 
   // Behave like a vector of states.
   yyGLRState*& operator[](yyStateSetIndex index) {
-    return yystates[index.get()];
+    return yystates[index.uget()];
   }
 
   yyGLRState* operator[](yyStateSetIndex index) const {
-    return yystates[index.get()];
+    return yystates[index.uget()];
   }
 
   size_t size() const {
@@ -1119,18 +1121,18 @@ class yyGLRStateSet {
 
 
   bool lookaheadNeeds(yyStateSetIndex index) const {
-    return yylookaheadNeeds[index.get()];
+    return yylookaheadNeeds[index.uget()];
   }
 
   bool setLookaheadNeeds(yyStateSetIndex index, bool value) {
-    return yylookaheadNeeds[index.get()] = value;
+    return yylookaheadNeeds[index.uget()] = value;
   }
 
   /** Invalidate stack #YYK.  */
   inline void
   yymarkStackDeleted (yyStateSetIndex yyk)
   {
-    size_t k = yyk.get();
+    size_t k = yyk.uget();
     if (yystates[k] != YY_NULLPTR)
       yylastDeleted = yystates[k];
     yystates[k] = YY_NULLPTR;
@@ -1193,10 +1195,10 @@ class yyGLRStateSet {
   yyStateSetIndex
   yysplitStack (yyStateSetIndex yyk)
   {
-    size_t k = yyk.get();
+    size_t k = yyk.uget();
     yystates.push_back(yystates[k]);
     yylookaheadNeeds.push_back(yylookaheadNeeds[k]);
-    return yycreateStateSetIndex(yystates.size() - 1);
+    return yycreateStateSetIndex(YY_CAST (ptrdiff_t, yystates.size() - 1));
   }
 
   void clearLastDeleted() {
@@ -1571,7 +1573,7 @@ struct yyStateStack {
     if (yyit == end)
       return false;
     for (yyStateSetIndex yyk = yycreateStateSetIndex(yyit + 1 - begin);
-         yyk.get() != numTops(); ++yyk)
+         yyk.uget() != numTops(); ++yyk)
       yytops.yymarkStackDeleted (yyk);
     yytops.yyremoveDeletes ();
     yycompressStack ();
@@ -1603,7 +1605,7 @@ struct yyStateStack {
         setFirstTop(&nextFreeState);
         ++nextFreeItem;
       }
-    yyitems.resize(nextFreeItem - yyitems.data());
+    yyitems.resize(YY_CAST (size_t, nextFreeItem - yyitems.data()));
   }
 
   bool isSplit() const {
