@@ -981,15 +981,16 @@ class yyGLRState {
   yyGLRState()
   : yyresolved(false)
   , yylrState(0)
+  , yyposn(0)
   , yypred(0)
-  , yyposn(0) {}
+  {}
 
   /// Build with a semantic value.
   yyGLRState(yyStateNum lrState, size_t posn, YYSTYPE sval]b4_locations_if([[, YYLTYPE loc]])[)
   : yyresolved(true)
   , yylrState(lrState)
-  , yypred(0)
-  , yyposn(posn)]b4_locations_if([[
+  , yyposn(posn)
+  , yypred(0)]b4_locations_if([[
   , yyloc(loc)]])[ {
     semanticVal() = sval;
   }
@@ -998,9 +999,10 @@ class yyGLRState {
   yyGLRState(yyStateNum lrState, size_t posn)
   : yyresolved(false)
   , yylrState(lrState)
-  , yypred(0)
   , yyposn(posn)
-  , yyfirstVal(0) {}
+  , yypred(0)
+  , yyfirstVal(0)
+  {}
 
   void copyFrom(const yyGLRState& other) {
     *this = other;
@@ -1221,13 +1223,15 @@ struct yySemanticOption {
   : yyrule(0)
   , yystate(0)
   , yynext(0)
-  , yyrawchar(0) {}
+  , yyrawchar(0)
+  {}
 
   yySemanticOption(yyRuleNum rule, int rawChar)
   : yyrule(rule)
   , yystate(0)
+  , yynext(0)
   , yyrawchar(rawChar)
-  , yynext(0) {}
+  {}
 
   /// Only call state() and setState() on objects in yyitems, not temporaries.
   yyGLRState* state();
