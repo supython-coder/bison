@@ -758,7 +758,7 @@ b4_copyright([Skeleton implementation for Bison GLR parsers in C],
 
 ]b4_null_define[
 
-]b4_defines_if([[#include "@basename(]b4_spec_defines_file[@)"]],
+]b4_defines_if([[#include "@basename(]b4_spec_header_file[@)"]],
                [b4_shared_declarations])[
 
 /* Default (constant) value used for initialization for null
