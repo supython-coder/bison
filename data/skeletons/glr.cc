@@ -933,9 +933,6 @@ typedef int yyStateNum;
 /** Rule numbers, as in LALR(1) machine */
 typedef int yyRuleNum;
 
-/** Grammar symbol */
-typedef int yySymbol;
-
 /** Item references, as in LALR(1) machine */
 typedef short yyItemNum;
 
@@ -960,7 +957,7 @@ yyStateSetIndex yycreateStateSetIndex(ptrdiff_t value) {
 ]m4_define([b4_yygetToken_call],
            [[yygetToken (&yychar][]b4_pure_if([, yystackp])[]b4_user_args[)]])[
 
-static inline yySymbol
+static inline ]b4_namespace_ref::b4_parser_class[::symbol_kind_type
 yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[);
 
 static inline bool
@@ -976,7 +973,7 @@ yyisErrorAction (int yyaction)
 }
 
 static inline int
-yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts);
+yygetLRActions (yyStateNum yystate, ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken, const short** yyconflicts);
 
 /** True iff LR state YYSTATE has only a default reduction (regardless
  *  of token).  */
@@ -1526,14 +1523,14 @@ yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1);
 
 
 /** Left-hand-side symbol for rule #YYRULE.  */
-static inline yySymbol
+static inline ]b4_namespace_ref::b4_parser_class[::symbol_kind_type
 yylhsNonterm (yyRuleNum yyrule)
 {
-  return yyr1[yyrule];
+  return YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yyr1[yyrule]);
 }
 
 static inline yyStateNum
-yyLRgotoState (yyStateNum yystate, yySymbol yysym);
+yyLRgotoState (yyStateNum yystate, ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yysym);
 
 #undef YYFILL
 #define YYFILL(N) yyfill (yyvsp, &yylow, (N), yynormal)
@@ -1926,11 +1923,11 @@ struct yyStateStack {
 
     if (yyx->state()->yyposn < yystates[0]->yyposn + 1)
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, empty>\n",
-                 yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", yysymbol_name (yylhsNonterm (yyx->yyrule)),
                  yyx->yyrule - 1);
     else
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %lu .. %lu>\n",
-                 yyindent, "", yytokenName (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", yysymbol_name (yylhsNonterm (yyx->yyrule)),
                  yyx->yyrule - 1, (unsigned long) (yystates[0]->yyposn + 1),
                  (unsigned long) yyx->state()->yyposn);
     for (int yyi = 1; yyi <= yynrhs; yyi += 1)
@@ -1939,10 +1936,10 @@ struct yyStateStack {
           {
             if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
               YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                         yytokenName (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
+                         yysymbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
             else
               YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
-                         yytokenName (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
+                         yysymbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
                          (unsigned long) (yystates[yyi-1]->yyposn + 1),
                          (unsigned long) yystates[yyi]->yyposn);
           }
@@ -2054,8 +2051,11 @@ struct yyGLRStack {
 [simple],
 [[    yyerror (]b4_lyyerror_args[YY_("syntax error"));]],
 [[    {
-    yySymbol yytoken = yychar == ]b4_symbol(-2, id)[ ? ]b4_symbol(-2, kind)[ : YYTRANSLATE (yychar);
-    size_t yysize0 = yytnamerr (YY_NULLPTR, yytokenName (yytoken));
+    ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken
+      = yychar == ]b4_symbol(-2, id)[
+      ? ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(-2, kind)[
+      : YYTRANSLATE (yychar);
+    size_t yysize0 = yytnamerr (YY_NULLPTR, yysymbol_name (yytoken));
     size_t yysize = yysize0;
     bool yysize_overflow = false;
     char* yymsg = YY_NULLPTR;
@@ -2091,10 +2091,10 @@ struct yyGLRStack {
          one exception: it will still contain any token that will not be
          accepted due to an error action in a later state.
     */
-    if (yytoken != ]b4_symbol(-2, kind)[)
+    if (yytoken != ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(-2, kind)[)
       {
         int yyn = yypact[firstTopState()->yylrState];
-        yyarg[yycount++] = yytokenName (yytoken);
+        yyarg[yycount++] = yysymbol_name (yytoken);
         if (!yypact_value_is_default (yyn))
           {
             /* Start YYX at -YYN if negative to avoid negative indexes in
@@ -2106,7 +2106,7 @@ struct yyGLRStack {
             int yyxend = yychecklim < YYNTOKENS ? yychecklim : YYNTOKENS;
             int yyx;
             for (yyx = yyxbegin; yyx < yyxend; ++yyx)
-              if (yycheck[yyx + yyn] == yyx && yyx != ]b4_symbol(1, kind)[
+              if (yycheck[yyx + yyn] == yyx && yyx != ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(1, kind)[
                   && !yytable_value_is_error (yytable[yyx + yyn]))
                 {
                   if (yycount == YYERROR_VERBOSE_ARGS_MAXIMUM)
@@ -2115,9 +2115,9 @@ struct yyGLRStack {
                       yysize = yysize0;
                       break;
                     }
-                  yyarg[yycount++] = yytokenName (yyx);
+                  yyarg[yycount++] = yysymbol_name (yyx);
                   {
-                    size_t yysz = yysize + yytnamerr (YY_NULLPTR, yytokenName (yyx));
+                    size_t yysz = yysize + yytnamerr (YY_NULLPTR, yysymbol_name (yyx));
                     if (yysz < yysize)
                       yysize_overflow = true;
                     yysize = yysz;
@@ -2194,7 +2194,7 @@ struct yyGLRStack {
          reductions.  Skip tokens until we can proceed.  */
       while (true)
         {
-          yySymbol yytoken;
+          ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken;
           int yyj;
           if (yychar == YYEOF)
             yyFail (YY_NULLPTR][]b4_lpure_args[);
@@ -2246,7 +2246,7 @@ struct yyGLRStack {
                 YYLTYPE yyerrloc;
                 yyerror_range[2].getState().yyloc = yylloc;
                 YYLLOC_DEFAULT (yyerrloc, (yyerror_range), 2);]])[
-                YY_SYMBOL_PRINT ("Shifting", YY_CAST (symbol_kind_type, yystos[yytable[yyj]]),
+                YY_SYMBOL_PRINT ("Shifting", YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yytable[yyj]]),
                                  &yylval, &yyerrloc);
                 yyglrShift (yycreateStateSetIndex(0), yytable[yyj],
                             yys->yyposn, &yylval]b4_locations_if([, &yyerrloc])[);
@@ -2303,7 +2303,7 @@ struct yyGLRStack {
         else
           {
             yystateStack.yytops.setLookaheadNeeds(yyk, true);
-            yySymbol yytoken = ]b4_yygetToken_call[;
+            ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken = ]b4_yygetToken_call[;
             const short* yyconflicts;
             int yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
 
@@ -2725,7 +2725,7 @@ struct yyGLRStack {
                   if (yyflag != yyok)
                     {
                       yyparser.yy_destroy_ ("Cleanup: discarding incompletely merged value for",
-                                  YY_CAST (symbol_kind_type, yystos[yys->yylrState]),
+                                  YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yys->yylrState]),
                                   &yysval]b4_locations_if([, yylocp])[);
                       break;
                     }
@@ -2836,10 +2836,10 @@ struct yyGLRStack {
 
 
 /** If yychar is empty, fetch the next token.  */
-static inline yySymbol
+static inline ]b4_namespace_ref::b4_parser_class[::symbol_kind_type
 yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals[)
 {
-  yySymbol yytoken;
+  ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken;
 ]b4_parse_param_use()dnl
 [  if (*yycharp == ]b4_symbol(-2, id)[)
     {
@@ -2856,10 +2856,9 @@ yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals
           YYDPRINTF ((stderr, "Caught exception: %s\n", yyexc.what()));]b4_locations_if([
           yylloc = yyexc.location;])[
           yyerror (]b4_lyyerror_args[yyexc.what ());
-          // Map errors caught in the scanner to the undefined token
-          // (YYUNDEFTOK), so that error handling is started.
-          // However, record this with this special value of yychar.
-          *yycharp = YYFAULTYTOK;
+          // Map errors caught in the scanner to the error token, so that error
+          // handling is started.
+          *yycharp = ]b4_symbol(1, id)[;
         }
 #endif // YY_EXCEPTIONS
     }
@@ -2909,7 +2908,7 @@ yyrhsLength (yyRuleNum yyrule)
  *  of conflicting reductions.
  */
 static inline int
-yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts)
+yygetLRActions (yyStateNum yystate, ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken, const short** yyconflicts)
 {
   int yyindex = yypact[yystate] + yytoken;
   if (yyisDefaultedState (yystate)
@@ -2935,7 +2934,7 @@ yygetLRActions (yyStateNum yystate, yySymbol yytoken, const short** yyconflicts)
  * \param yysym     the nonterminal to push on the stack
  */
 static inline yyStateNum
-yyLRgotoState (yyStateNum yystate, yySymbol yysym)
+yyLRgotoState (yyStateNum yystate, ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yysym)
 {
   int yyr = yypgoto[yysym - YYNTOKENS] + yystate;
   if (0 <= yyr && yyr <= YYLAST && yycheck[yyr] == yystate)
@@ -3044,7 +3043,7 @@ b4_dollar_popdef])[]dnl
             }
           else
             {
-              yySymbol yytoken = ]b4_yygetToken_call;[
+              ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken = ]b4_yygetToken_call;[
               const short* yyconflicts;
               int yyaction = yygetLRActions (yystate, yytoken, &yyconflicts);
               if (*yyconflicts != 0)
@@ -3074,7 +3073,7 @@ b4_dollar_popdef])[]dnl
 
       while (true)
         {
-          yySymbol yytoken_to_shift;
+          ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken_to_shift;
 
           for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
             yystackp->yystateStack.yytops.setLookaheadNeeds(yys, yychar != ]b4_symbol(-2, id)[);
