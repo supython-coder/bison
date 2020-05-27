@@ -97,7 +97,7 @@ m4_defn([b4_initial_action])]))])[
 [static void
 yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_type *yylocationp,
          ]])[]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param),
-         ])[const char* msg);]])[
+         ])[const std::string& msg);]])[
 
 ]b4_percent_define_flag_if([[global_tokens_and_yystype]], [],
 [m4_define([b4_pre_epilogue],
@@ -117,7 +117,7 @@ yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_
 static void
 yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_type *yylocationp,
          ]])[]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param),
-         ])[const char* msg)
+         ])[const std::string& msg)
 {
 ]b4_parse_param_use[]dnl
 [  yyparser.error (]b4_locations_if([[*yylocationp, ]])[msg);
@@ -152,6 +152,83 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
   {
     return ::yyparse (*this]b4_user_args[);
   }
+
+]b4_parse_error_bmatch([custom\|detailed],
+[[  const char *
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    static const char *const yy_sname[] =
+    {
+    ]b4_symbol_names[
+    };]b4_has_translations_if([[
+    /* YYTRANSLATABLE[SYMBOL-NUM] -- Whether YY_SNAME[SYMBOL-NUM] is
+       internationalizable.  */
+    static ]b4_int_type_for([b4_translatable])[ yytranslatable[] =
+    {
+    ]b4_translatable[
+    };
+    return (yysymbol < YYNTOKENS && yytranslatable[yysymbol]
+            ? _(yy_sname[yysymbol])
+            : yy_sname[yysymbol]);]], [[
+    return yy_sname[yysymbol];]])[
+  }
+]],
+[simple],
+[[#if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+  const char *
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    return yytname_[yysymbol];
+  }
+#endif // #if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+]],
+[verbose],
+[[  /* Return YYSTR after stripping away unnecessary quotes and
+     backslashes, so that it's suitable for yyerror.  The heuristic is
+     that double-quoting is unnecessary unless the string contains an
+     apostrophe, a comma, or backslash (other than backslash-backslash).
+     YYSTR is taken from yytname.  */
+  std::string
+  ]b4_parser_class[::yytnamerr_ (const char *yystr)
+  {
+    if (*yystr == '"')
+      {
+        std::string yyr;
+        char const *yyp = yystr;
+
+        for (;;)
+          switch (*++yyp)
+            {
+            case '\'':
+            case ',':
+              goto do_not_strip_quotes;
+
+            case '\\':
+              if (*++yyp != '\\')
+                goto do_not_strip_quotes;
+              else
+                goto append;
+
+            append:
+            default:
+              yyr += *yyp;
+              break;
+
+            case '"':
+              return yyr;
+            }
+      do_not_strip_quotes: ;
+      }
+
+    return yystr;
+  }
+
+  std::string
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    return yytnamerr_ (yytname_[yysymbol]);
+  }
+]])[
 
 #if ]b4_api_PREFIX[DEBUG
   /*--------------------.
@@ -420,11 +497,26 @@ class StrongIndexAlias
     virtual void yy_symbol_print_ (symbol_kind_type yykind,
                                    const semantic_type* yyvaluep]b4_locations_if([[,
                                    const location_type* yylocationp]])[) const;
-
   private:
     /// Debug stream.
     std::ostream* yycdebug_;
 #endif
+
+  public: // FIXME: Private
+]b4_parse_error_bmatch(
+[simple],
+[[#if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+    /// For a symbol, its name in clear.
+    static const char* const yytname_[];
+#endif // #if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+]],
+[verbose],
+[[    /// Convert the symbol name \a n to a form suitable for a diagnostic.
+    static std::string yytnamerr_ (const char *yystr);
+
+    /// For a symbol, its name in clear.
+    static const char* const yytname_[];
+]])[
 
     /// \brief Reclaim the memory associated to a symbol.
     /// \param yymsg     Why this token is reclaimed.
@@ -1923,11 +2015,11 @@ struct yyStateStack {
 
     if (yyx->state()->yyposn < yystates[0]->yyposn + 1)
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, empty>\n",
-                 yyindent, "", yysymbol_name (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
                  yyx->yyrule - 1);
     else
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %lu .. %lu>\n",
-                 yyindent, "", yysymbol_name (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
                  yyx->yyrule - 1, (unsigned long) (yystates[0]->yyposn + 1),
                  (unsigned long) yyx->state()->yyposn);
     for (int yyi = 1; yyi <= yynrhs; yyi += 1)
@@ -1936,10 +2028,10 @@ struct yyStateStack {
           {
             if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
               YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                         yysymbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
+                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
             else
               YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
-                         yysymbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
+                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
                          (unsigned long) (yystates[yyi-1]->yyposn + 1),
                          (unsigned long) yystates[yyi]->yyposn);
           }
@@ -2055,15 +2147,9 @@ struct yyGLRStack {
       = yychar == ]b4_symbol(-2, id)[
       ? ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(-2, kind)[
       : YYTRANSLATE (yychar);
-    size_t yysize0 = yytnamerr (YY_NULLPTR, yysymbol_name (yytoken));
-    size_t yysize = yysize0;
-    bool yysize_overflow = false;
-    char* yymsg = YY_NULLPTR;
     enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
-    /* Internationalized format string. */
-    const char *yyformat = YY_NULLPTR;
     /* Arguments of yyformat. */
-    char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
+    ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
     /* Number of reported tokens (one for the "unexpected", one per
        "expected").  */
     int yycount = 0;
@@ -2094,7 +2180,7 @@ struct yyGLRStack {
     if (yytoken != ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(-2, kind)[)
       {
         int yyn = yypact[firstTopState()->yylrState];
-        yyarg[yycount++] = yysymbol_name (yytoken);
+        yyarg[yycount++] = yytoken;
         if (!yypact_value_is_default (yyn))
           {
             /* Start YYX at -YYN if negative to avoid negative indexes in
@@ -2112,20 +2198,15 @@ struct yyGLRStack {
                   if (yycount == YYERROR_VERBOSE_ARGS_MAXIMUM)
                     {
                       yycount = 1;
-                      yysize = yysize0;
                       break;
                     }
-                  yyarg[yycount++] = yysymbol_name (yyx);
-                  {
-                    size_t yysz = yysize + yytnamerr (YY_NULLPTR, yysymbol_name (yyx));
-                    if (yysz < yysize)
-                      yysize_overflow = true;
-                    yysize = yysz;
-                  }
+                  yyarg[yycount++] = YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yyx);
                 }
           }
       }
 
+    /* Internationalized format string. */
+    const char *yyformat = YY_NULLPTR;
     switch (yycount)
       {
 #define YYCASE_(N, S)                   \
@@ -2142,41 +2223,18 @@ struct yyGLRStack {
 #undef YYCASE_
       }
 
-    {
-      size_t yysz = yysize + strlen (yyformat);
-      if (yysz < yysize)
-        yysize_overflow = true;
-      yysize = yysz;
-    }
-
-    if (!yysize_overflow)
-      yymsg = (char *) YYMALLOC (yysize);
-
-    if (yymsg)
-      {
-        char *yyp = yymsg;
-        int yyi = 0;
-        while ((*yyp = *yyformat))
-          {
-            if (*yyp == '%' && yyformat[1] == 's' && yyi < yycount)
-              {
-                yyp += yytnamerr (yyp, yyarg[yyi++]);
-                yyformat += 2;
-              }
-            else
-              {
-                yyp++;
-                yyformat++;
-              }
-          }
-        yyerror (]b4_lyyerror_args[yymsg);
-        YYFREE (yymsg);
-      }
-    else
-      {
-        yyerror (]b4_lyyerror_args[YY_("syntax error"));
-        yyMemoryExhausted();
-      }
+    std::string yymsg;
+    // Argument number.
+    std::ptrdiff_t yyi = 0;
+    for (char const* yyp = yyformat; *yyp; ++yyp)
+      if (yyp[0] == '%' && yyp[1] == 's' && yyi < yycount)
+        {
+          yymsg += ]b4_namespace_ref::b4_parser_class[::symbol_name (yyarg[yyi++]);
+          ++yyp;
+        }
+      else
+        yymsg += *yyp;
+     yyerror (]b4_lyyerror_args[yymsg);
     }
 ]])[
     yynerrs += 1;
@@ -2865,7 +2923,7 @@ yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals
   if (*yycharp <= ]b4_symbol(0, id)[)
     {
       *yycharp = ]b4_symbol(0, id)[;
-      yytoken = ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(0, kind)[;
+      yytoken = ]b4_symbol(0, kind)[;
       YYDPRINTF ((stderr, "Now at end of input.\n"));
     }
   else
@@ -2992,7 +3050,8 @@ yypreference (yySemanticOption* y0, yySemanticOption* y1)
 | yyparse.  |
 `----------*/
 
-]b4_function_define([yyparse], [int], b4_parse_param)[
+int
+yyparse (]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param)], [void])[)
 {
   int yyresult;
   yyGLRStack yystack(YYINITDEPTH]b4_user_args[);
@@ -3063,7 +3122,7 @@ b4_dollar_popdef])[]dnl
                   yystack.yyerror_range[1].getState().yyloc = yylloc;]])[
                   /* Don't issue an error message again for exceptions
                      thrown from the scanner.  */
-                  if (yychar != YYFAULTYTOK)
+                  if (yychar != ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(1, id)[)
                     yystack.yyreportSyntaxError (]b4_user_args_no_comma[);
                   goto yyuser_error;
                 }
