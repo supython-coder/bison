@@ -658,6 +658,11 @@ m4_define([b4_locuser_args],
 [b4_locations_if([, m4_default([$1], [yylocp])])[]b4_user_args])
 
 
+# b4_symbol_kind(NUM)
+# -------------------
+m4_define([b4_symbol_kind],
+[symbol_kind::b4_symbol_kind_base($@)])
+
 
 ## ----------------- ##
 ## Semantic Values.  ##
