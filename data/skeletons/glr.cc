@@ -263,7 +263,7 @@ class StrongIndexAlias
 
   ptrdiff_t const& get() const {return value_; }
 
-  size_t const& uget() const {return YY_CAST(size_t, value_); }
+  size_t uget() const {return YY_CAST(size_t, value_); }
 
   StrongIndexAlias operator+(ptrdiff_t other) const {
     return StrongIndexAlias(get() + other);
@@ -1835,7 +1835,7 @@ struct yyStateStack {
         YYFPRINTF (stderr, "\n");
       }
     YYFPRINTF (stderr, "Tops:");
-    for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.get() < numTops(); ++yyi) {
+    for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.uget() < numTops(); ++yyi) {
       YYFPRINTF (stderr, "%lu: %ld; ",
                  (unsigned long) yyi.get(),
                  (long) YYINDEX(topAt(yyi)));
@@ -2540,7 +2540,7 @@ struct yyGLRStack {
                     "Reduced stack %lu by rule #%d; action deferred.  "
                     "Now in state %d.\n",
                     (unsigned long) yyk.get(), yyrule - 1, yynewLRState));
-        for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.get() < yystateStack.numTops(); ++yyi)
+        for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.uget() < yystateStack.numTops(); ++yyi)
           if (yyi != yyk && yystateStack.topAt(yyi) != YY_NULLPTR)
             {
               yyGLRState* yysplit = yystateStack.yysplitPoint;
@@ -2621,7 +2621,7 @@ struct yyGLRStack {
     /* If the stack is well-formed, pop the stack until it is empty,
        destroying its entries as we go.  But free the stack regardless
        of whether it is well-formed.  */
-    for (yyStateSetIndex k = yycreateStateSetIndex(0); k.get() < yystateStack.numTops(); k += 1)
+    for (yyStateSetIndex k = yycreateStateSetIndex(0); k.uget() < yystateStack.numTops(); k += 1)
       if (yystateStack.topAt(k) != YY_NULLPTR)
         {
           while (yystateStack.topAt(k) != YY_NULLPTR)
@@ -3076,7 +3076,7 @@ b4_dollar_popdef])[]dnl
         {
           ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken_to_shift;
 
-          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.uget() < yystack.yystateStack.numTops(); ++yys)
             yystackp->yystateStack.yytops.setLookaheadNeeds(yys, yychar != ]b4_symbol(-2, id)[);
 
           /* yyprocessOneStack returns one of three things:
@@ -3098,7 +3098,7 @@ b4_dollar_popdef])[]dnl
              reductions on all stacks) helps prevent double destructor calls
              on yylval in the event of memory exhaustion.  */
 
-          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.uget() < yystack.yystateStack.numTops(); ++yys)
             YYCHK1 (yystack.yyprocessOneStack (yys, yyposn]b4_lpure_args[));
           yystack.yystateStack.yytops.yyremoveDeletes ();
           if (yystack.yystateStack.yytops.size() == 0)
@@ -3121,7 +3121,7 @@ b4_dollar_popdef])[]dnl
           yytoken_to_shift = YYTRANSLATE (yychar);
           yychar = ]b4_symbol(-2, id)[;
           yyposn += 1;
-          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.get() < yystack.yystateStack.numTops(); ++yys)
+          for (yyStateSetIndex yys = yycreateStateSetIndex(0); yys.uget() < yystack.yystateStack.numTops(); ++yys)
             {
               yyStateNum yystate = yystack.topState(yys)->yylrState;
               const short* yyconflicts;
