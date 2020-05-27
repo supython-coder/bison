@@ -2900,7 +2900,7 @@ yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals
 ]b4_parse_param_use()dnl
 [  if (*yycharp == ]b4_namespace_ref::b4_parser_class::token::b4_symbol(-2, id)[)
     {
-      YYDPRINTF ((stderr, "Reading a token: "));
+      YYDPRINTF ((stderr, "Reading a token\n"));
 #if YY_EXCEPTIONS
       try
         {
