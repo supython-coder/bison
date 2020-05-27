@@ -348,29 +348,29 @@ template <typename Parameter>
 class StrongIndexAlias
 {
  public:
-  static StrongIndexAlias create(ptrdiff_t value) {
+  static StrongIndexAlias create(std::ptrdiff_t value) {
     StrongIndexAlias result;
     result.value_ = value;
     return result;
   }
 
-  ptrdiff_t const& get() const {return value_; }
+  std::ptrdiff_t const& get() const {return value_; }
 
   size_t uget() const {return YY_CAST(size_t, value_); }
 
-  StrongIndexAlias operator+(ptrdiff_t other) const {
+  StrongIndexAlias operator+(std::ptrdiff_t other) const {
     return StrongIndexAlias(get() + other);
   }
 
-  void operator+=(ptrdiff_t other) {
+  void operator+=(std::ptrdiff_t other) {
     value_ += other;
   }
 
-  StrongIndexAlias operator-(ptrdiff_t other) {
+  StrongIndexAlias operator-(std::ptrdiff_t other) {
     return StrongIndexAlias(get() - other);
   }
 
-  void operator-=(ptrdiff_t other) {
+  void operator-=(std::ptrdiff_t other) {
     value_ -= other;
   }
 
@@ -407,7 +407,7 @@ class StrongIndexAlias
   static const size_t INVALID_INDEX = PTRDIFF_MAX;
 
   // WARNING: 0-initialized.
-  ptrdiff_t value_;
+  std::ptrdiff_t value_;
 };
 
 
@@ -771,9 +771,10 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
 ]b4_user_post_prologue[
 ]b4_percent_code_get[]dnl
 
-[#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+[#include <cstdio>
+#include <cstdlib>
+#include <cstddef> // ptrdiff_t
+
 
 #ifndef YY_
 # if defined YYENABLE_NLS && YYENABLE_NLS
@@ -1035,7 +1036,7 @@ struct yyGLRStack;
 
 typedef StrongIndexAlias<struct yyGLRStateSetTag> yyStateSetIndex;
 
-yyStateSetIndex yycreateStateSetIndex(ptrdiff_t value) {
+yyStateSetIndex yycreateStateSetIndex(std::ptrdiff_t value) {
   return yyStateSetIndex::create(value);
 }
 
@@ -1163,7 +1164,7 @@ class yyGLRState {
   }
 #endif
 
-  ptrdiff_t indexIn(yyGLRStackItem* array);
+  std::ptrdiff_t indexIn(yyGLRStackItem* array);
 
   yyGLRStackItem* asItem() {
     return asItem(this);
@@ -1179,12 +1180,12 @@ class yyGLRState {
     return reinterpret_cast<yyGLRStackItem*>(state);
   }
   /** Preceding state in this stack */
-  ptrdiff_t yypred;
+  std::ptrdiff_t yypred;
   union {
     /** First in a chain of alternative reductions producing the
      *  nonterminal corresponding to this state, threaded through
      *  yyfirstVal.  */
-    ptrdiff_t yyfirstVal;
+    std::ptrdiff_t yyfirstVal;
     /** Semantic value for this state.  */
     YYSTYPE yysval;
   };]b4_locations_if([[
@@ -1263,7 +1264,7 @@ class yyGLRStateSet {
   inline void
   yyremoveDeletes ()
   {
-    ptrdiff_t newsize = YY_CAST(ptrdiff_t, yystates.size());
+    std::ptrdiff_t newsize = YY_CAST(std::ptrdiff_t, yystates.size());
     /* j is the number of live stacks we have seen.  */
     for (size_t i = 0, j = 0; i < yystates.size(); ++i)
       {
@@ -1304,7 +1305,7 @@ class yyGLRStateSet {
     size_t k = yyk.uget();
     yystates.push_back(yystates[k]);
     yylookaheadNeeds.push_back(yylookaheadNeeds[k]);
-    return yycreateStateSetIndex(YY_CAST (ptrdiff_t, yystates.size() - 1));
+    return yycreateStateSetIndex(YY_CAST (std::ptrdiff_t, yystates.size() - 1));
   }
 
   void clearLastDeleted() {
@@ -1349,7 +1350,7 @@ struct yySemanticOption {
   yySemanticOption* next();
   void setNext(const yySemanticOption* s);
 
-  ptrdiff_t indexIn(yyGLRStackItem* array);
+  std::ptrdiff_t indexIn(yyGLRStackItem* array);
 
   /** True iff YYY0 and YYY1 represent identical options at the top level.
    *  That is, they represent the same rule applied to RHS symbols
@@ -1450,10 +1451,10 @@ struct yySemanticOption {
     return reinterpret_cast<yyGLRStackItem*>(state);
   }
   /** The last RHS state in the list of states to be reduced.  */
-  ptrdiff_t yystate;
+  std::ptrdiff_t yystate;
   /** Next sibling in chain of options.  To facilitate merging,
    *  options are chained in decreasing order by address.  */
-  ptrdiff_t yynext;
+  std::ptrdiff_t yynext;
  public:
   /** The lookahead for this reduction.  */
   int yyrawchar;
@@ -1545,11 +1546,11 @@ void yyGLRState::setFirstVal(const yySemanticOption* option) {
   yyfirstVal = option ? asItem(this) - asItem(option) : 0;
 }
 
-ptrdiff_t yyGLRState::indexIn(yyGLRStackItem* array) {
+std::ptrdiff_t yyGLRState::indexIn(yyGLRStackItem* array) {
   return asItem(this) - array;
 }
 
-ptrdiff_t yySemanticOption::indexIn(yyGLRStackItem* array) {
+std::ptrdiff_t yySemanticOption::indexIn(yyGLRStackItem* array) {
   return asItem(this) - array;
 }
 
@@ -3236,7 +3237,7 @@ b4_dollar_popdef])[]dnl
 static void
 yypstack (yyGLRStack* yystackp, size_t yyk)
 {
-  yystackp->yypstack(yycreateStateSetIndex(YY_CAST(ptrdiff_t, yyk)));
+  yystackp->yypstack(yycreateStateSetIndex(YY_CAST(std::ptrdiff_t, yyk)));
 }
 static void yypdumpstack (struct yyGLRStack* yystackp) {
   yystackp->yypdumpstack();
