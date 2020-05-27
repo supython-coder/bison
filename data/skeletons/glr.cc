@@ -543,12 +543,9 @@ class StrongIndexAlias
 ]b4_parse_param_vars[
   };
 
-]dnl Redirections for glr.c.
-b4_percent_define_flag_if([[global_tokens_and_yystype]],
-[b4_token_defines
-])[
 ]b4_namespace_close[
 
+// Redirections for glr.c.
 #ifndef ]b4_api_PREFIX[STYPE
 # define ]b4_api_PREFIX[STYPE ]b4_namespace_ref[::]b4_parser_class[::semantic_type
 #endif
@@ -556,12 +553,6 @@ b4_percent_define_flag_if([[global_tokens_and_yystype]],
 # define ]b4_api_PREFIX[LTYPE ]b4_namespace_ref[::]b4_parser_class[::location_type
 #endif
 
-]m4_define([b4_declare_symbol_enum],
-[[typedef ]b4_namespace_ref[::]b4_parser_class[::symbol_kind_type yysymbol_kind_t;
-
-// Expose C++ symbol kinds to C.
-]b4_define_symbol_kind(-2)dnl
-b4_symbol_foreach([b4_define_symbol_kind])])[
 ]b4_percent_code_get([[provides]])[
 ]m4_popdef([b4_parse_param])dnl
 ])
