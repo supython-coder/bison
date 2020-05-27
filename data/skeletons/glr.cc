@@ -2196,7 +2196,7 @@ struct yyGLRStack {
         {
           ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken;
           int yyj;
-          if (yychar == YYEOF)
+          if (yychar == ]b4_symbol(0, id)[)
             yyFail (YY_NULLPTR][]b4_lpure_args[);
           if (yychar != ]b4_symbol(-2, id)[)
             {]b4_locations_if([[
@@ -2862,9 +2862,10 @@ yygetToken (int *yycharp][]b4_pure_if([, yyGLRStack* yystackp])[]b4_user_formals
         }
 #endif // YY_EXCEPTIONS
     }
-  if (*yycharp <= YYEOF)
+  if (*yycharp <= ]b4_symbol(0, id)[)
     {
-      *yycharp = yytoken = YYEOF;
+      *yycharp = ]b4_symbol(0, id)[;
+      yytoken = ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(0, kind)[;
       YYDPRINTF ((stderr, "Now at end of input.\n"));
     }
   else
