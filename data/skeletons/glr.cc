@@ -2010,25 +2010,27 @@ struct yyStateStack {
         yystates[0] = yys;
     }
 
+    std::string yylhs = ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule));
     if (yyx->state()->yyposn < yystates[0]->yyposn + 1)
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, empty>\n",
-                 yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", yylhs.c_str(),
                  yyx->yyrule - 1);
     else
       YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %zu .. %zu>\n",
-                 yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
+                 yyindent, "", yylhs.c_str(),
                  yyx->yyrule - 1, yystates[0]->yyposn + 1,
                  yyx->state()->yyposn);
     for (int yyi = 1; yyi <= yynrhs; yyi += 1)
       {
         if (yystates[yyi]->yyresolved)
           {
+            std::string yysym = ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yystates[yyi]->yylrState]));
             if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
               YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yystates[yyi]->yylrState])));
+                         yysym.c_str());
             else
               YYFPRINTF (stderr, "%*s%s <tokens %zu .. %zu>\n", yyindent+2, "",
-                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yystates[yyi]->yylrState])),
+                         yysym.c_str(),
                          yystates[yyi-1]->yyposn + 1,
                          yystates[yyi]->yyposn);
           }
