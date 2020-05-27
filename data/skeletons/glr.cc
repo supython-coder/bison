@@ -748,26 +748,25 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
    accessed by $0, $-1, etc., in any rule.  */
 #define YYMAXLEFT ]b4_max_left_semantic_context[
 
-/* YYMAXUTOK -- Last valid token number (for yychar).  */
-#define YYMAXUTOK   ]b4_user_token_number_max[
-/* YYFAULTYTOK -- Token number (for yychar) that denotes a
-   syntax_error thrown from the scanner.  */
-#define YYFAULTYTOK (YYMAXUTOK + 1)
 /* YYUNDEFTOK -- Symbol number (for yytoken) that denotes an unknown
    token.  */
 #define YYUNDEFTOK  ]b4_undef_token_number[
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
    as returned by yylex, with out-of-bounds checking.  */
-#define YYTRANSLATE(YYX)                                                \
-  ((unsigned) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
+]b4_api_token_raw_if(dnl
+[[#define YYTRANSLATE(YYX) YY_CAST (]b4_namespace_ref::b4_parser_class[::yysymbol_kind_t, YYX)]],
+[[#define YYTRANSLATE(YYX)                                \
+  (0 <= (YYX) && (YYX) <= ]b4_code_max[                     \
+   ? YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yytranslate[YYX])        \
+   : ]b4_namespace_ref::b4_parser_class::symbol_kind::b4_symbol(-2, kind)[)
 
 /* YYTRANSLATE[TOKEN-NUM] -- Symbol number corresponding to TOKEN-NUM
    as returned by yylex.  */
 static const ]b4_int_type_for([b4_translate])[ yytranslate[] =
 {
   ]b4_translate[
-};
+};]])[
 
 #if ]b4_api_PREFIX[DEBUG
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
