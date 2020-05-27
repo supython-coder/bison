@@ -246,11 +246,13 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
   void
   ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
                            const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[) const
+                           const location_type* yylocationp]])[)
   {
     YYUSE (yyvaluep);
     if (!yymsg)
       yymsg = "Deleting";
+    ]b4_namespace_ref::b4_parser_class[& yyparser = *this;
+    YYUSE (yyparser);
     YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
 
     YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
@@ -282,7 +284,7 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
                            const location_type* yylocationp]])[) const
   {
     *yycdebug_ << (yykind < YYNTOKENS ? "token" : "nterm")
-               << ' ' << yytname[yykind] << " ("]b4_locations_if([[
+               << ' ' << ]b4_namespace_ref::b4_parser_class[::symbol_name (yykind) << " ("]b4_locations_if([[
                << *yylocationp << ": "]])[;
     yy_symbol_value_print_ (yykind, yyvaluep]b4_locations_if([[, yylocationp]])[);
     *yycdebug_ << ')';
@@ -538,7 +540,7 @@ class StrongIndexAlias
     /// \param yysym     The symbol.
     void yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
                       const semantic_type* yyvaluep]b4_locations_if([[,
-                      const location_type* yylocationp]])[) const;
+                      const location_type* yylocationp]])[);
 
 ]b4_parse_param_vars[
   };
@@ -1279,8 +1281,7 @@ class yyGLRStateSet {
             yylookaheadNeeds[j] = yylookaheadNeeds[i];
             if (j != i)
               {
-                YYDPRINTF ((stderr, "Rename stack %lu -> %lu.\n",
-                            (unsigned long) i, (unsigned long) j));
+                YYDPRINTF ((stderr, "Rename stack %zu -> %zu.\n", i, j));
               }
             j += 1;
           }
@@ -1581,7 +1582,7 @@ void yyGLRState::destroy (char const *yymsg]b4_user_formals[)
             YYFPRINTF (stderr, "%s unresolved", yymsg);
           else
             YYFPRINTF (stderr, "%s incomplete", yymsg);
-          YY_SYMBOL_PRINT ("", YY_CAST (symbol_kind_type, yystos[yylrState]), YY_NULLPTR, &yyloc);
+          YY_SYMBOL_PRINT ("", YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yylrState]), YY_NULLPTR, &yyloc);
         }
 #endif
 
@@ -1877,7 +1878,7 @@ struct yyStateStack {
       {
         YYFPRINTF (stderr, "   $%d = ", yyi + 1);
         yy_symbol_print (stderr,
-                         YY_CAST (symbol_kind_type, yystos[yyvsp[yyi - yynrhs + 1].getState().yylrState]),
+                         YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yyvsp[yyi - yynrhs + 1].getState().yylrState]),
                          &yyvsp[yyi - yynrhs + 1].getState().semanticVal()]b4_locations_if([,
                          &]b4_rhs_location(yynrhs, yyi + 1))[]dnl
                          b4_user_args[);
@@ -1897,32 +1898,31 @@ struct yyStateStack {
     for (size_t yyi = 0; yyi < size(); ++yyi)
       {
         yyGLRStackItem& item = yyitems[yyi];
-        YYFPRINTF (stderr, "%3lu. ",
-                   (unsigned long) yyi);
+        YYFPRINTF (stderr, "%3zu. ", yyi);
         if (item.isState())
           {
-            YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %lu, pred: %ld",
+            YYFPRINTF (stderr, "Res: %d, LR State: %d, posn: %zu, pred: %td",
                        item.getState().yyresolved, item.getState().yylrState,
-                       (unsigned long) item.getState().yyposn,
-                       (long) YYINDEX(item.getState().pred()));
+                       item.getState().yyposn,
+                       YYINDEX(item.getState().pred()));
             if (! item.getState().yyresolved)
-              YYFPRINTF (stderr, ", firstVal: %ld",
-                         (long) YYINDEX(item.getState().firstVal()));
+              YYFPRINTF (stderr, ", firstVal: %td",
+                         YYINDEX(item.getState().firstVal()));
           }
         else
           {
-            YYFPRINTF (stderr, "Option. rule: %d, state: %ld, next: %ld",
+            YYFPRINTF (stderr, "Option. rule: %d, state: %td, next: %td",
                        item.getOption().yyrule - 1,
-                       (long) YYINDEX(item.getOption().state()),
-                       (long) YYINDEX(item.getOption().next()));
+                       YYINDEX(item.getOption().state()),
+                       YYINDEX(item.getOption().next()));
           }
         YYFPRINTF (stderr, "\n");
       }
     YYFPRINTF (stderr, "Tops:");
     for (yyStateSetIndex yyi = yycreateStateSetIndex(0); yyi.uget() < numTops(); ++yyi) {
-      YYFPRINTF (stderr, "%lu: %ld; ",
+      YYFPRINTF (stderr, "%lu: %td; ",
                  (unsigned long) yyi.get(),
-                 (long) YYINDEX(topAt(yyi)));
+                 YYINDEX(topAt(yyi)));
     }
     YYFPRINTF (stderr, "\n");
   }
@@ -2010,22 +2010,22 @@ struct yyStateStack {
                  yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
                  yyx->yyrule - 1);
     else
-      YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %lu .. %lu>\n",
+      YYFPRINTF (stderr, "%*s%s -> <Rule %d, tokens %zu .. %zu>\n",
                  yyindent, "", ]b4_namespace_ref::b4_parser_class[::symbol_name (yylhsNonterm (yyx->yyrule)),
-                 yyx->yyrule - 1, (unsigned long) (yystates[0]->yyposn + 1),
-                 (unsigned long) yyx->state()->yyposn);
+                 yyx->yyrule - 1, yystates[0]->yyposn + 1,
+                 yyx->state()->yyposn);
     for (int yyi = 1; yyi <= yynrhs; yyi += 1)
       {
         if (yystates[yyi]->yyresolved)
           {
             if (yystates[yyi-1]->yyposn+1 > yystates[yyi]->yyposn)
               YYFPRINTF (stderr, "%*s%s <empty>\n", yyindent+2, "",
-                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])));
+                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yystates[yyi]->yylrState])));
             else
-              YYFPRINTF (stderr, "%*s%s <tokens %lu .. %lu>\n", yyindent+2, "",
-                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (symbol_kind_type, yystos[yystates[yyi]->yylrState])),
-                         (unsigned long) (yystates[yyi-1]->yyposn + 1),
-                         (unsigned long) yystates[yyi]->yyposn);
+              YYFPRINTF (stderr, "%*s%s <tokens %zu .. %zu>\n", yyindent+2, "",
+                         ]b4_namespace_ref::b4_parser_class[::symbol_name (YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yystos[yystates[yyi]->yylrState])),
+                         yystates[yyi-1]->yyposn + 1,
+                         yystates[yyi]->yyposn);
           }
         else
           yyreportTree (yystates[yyi]->firstVal(),
@@ -2321,8 +2321,8 @@ struct yyGLRStack {
     while (yystateStack.topAt(yyk) != YY_NULLPTR)
       {
         yyStateNum yystate = topState(yyk)->yylrState;
-        YYDPRINTF ((stderr, "Stack %lu Entering state %d\n",
-                    (unsigned long) yyk.get(), yystate));
+        YYDPRINTF ((stderr, "Stack %zu Entering state %d\n",
+                    yyk.get(), yystate));
 
         YYASSERT (yystate != YYFINAL);
 
@@ -2331,8 +2331,8 @@ struct yyGLRStack {
             yyRuleNum yyrule = yydefaultAction (yystate);
             if (yyrule == 0)
               {
-                YYDPRINTF ((stderr, "Stack %lu dies.\n",
-                            (unsigned long) yyk.get()));
+                YYDPRINTF ((stderr, "Stack %zu dies.\n",
+                            yyk.get()));
                 yystateStack.yytops.yymarkStackDeleted (yyk);
                 return yyok;
               }
@@ -2341,9 +2341,9 @@ struct yyGLRStack {
             if (yyflag == yyerr)
               {
                 YYDPRINTF ((stderr,
-                            "Stack %lu dies "
+                            "Stack %zu dies "
                             "(predicate failure or explicit user error).\n",
-                            (unsigned long) yyk.get()));
+                            yyk.get()));
                 yystateStack.yytops.yymarkStackDeleted (yyk);
                 return yyok;
               }
@@ -2360,9 +2360,9 @@ struct yyGLRStack {
             for (; *yyconflicts != 0; ++yyconflicts)
               {
                 yyStateSetIndex yynewStack = yystateStack.yysplitStack (yyk);
-                YYDPRINTF ((stderr, "Splitting off stack %lu from %lu.\n",
+                YYDPRINTF ((stderr, "Splitting off stack %lu from %zu.\n",
                             (unsigned long) yynewStack.get(),
-                            (unsigned long) yyk.get()));
+                            yyk.get()));
                 YYRESULTTAG yyflag =
                   yyglrReduce (yynewStack, *yyconflicts,
                                yyimmediate[*yyconflicts]]b4_user_args[);
@@ -2371,8 +2371,8 @@ struct yyGLRStack {
                                             yyposn]b4_pure_args[));
                 else if (yyflag == yyerr)
                   {
-                    YYDPRINTF ((stderr, "Stack %lu dies.\n",
-                                (unsigned long) yynewStack.get()));
+                    YYDPRINTF ((stderr, "Stack %zu dies.\n",
+                                yynewStack.get()));
                     yystateStack.yytops.yymarkStackDeleted (yynewStack);
                   }
                 else
@@ -2569,7 +2569,7 @@ struct yyGLRStack {
           }
         if (yyflag != yyok)
           return yyflag;
-        YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyrule], &yysval, &yyloc);
+        YY_SYMBOL_PRINT ("-> $$ =", YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yyr1[yyrule]), &yysval, &yyloc);
         yyglrShift (yyk,
                     yyLRgotoState (topState(yyk)->yylrState,
                                    yylhsNonterm (yyrule)),
@@ -3229,7 +3229,7 @@ b4_dollar_popdef])[]dnl
 static void
 yypstack (yyGLRStack* yystackp, size_t yyk)
 {
-  yystackp->yypstack(yycreateStateSetIndex(yyk));
+  yystackp->yypstack(yycreateStateSetIndex(YY_CAST(ptrdiff_t, yyk)));
 }
 static void yypdumpstack (struct yyGLRStack* yystackp) {
   yystackp->yypdumpstack();
