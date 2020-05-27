@@ -1,4 +1,8 @@
 * Bison 3.7
+** C++
+There are still places where we don't use b4_symbol in c++.m4
+(]b4_symbol_prefix[YYEMPTY, also YYEOF).
+
 ** Cex
 Don't do this (counterexample.c):
 

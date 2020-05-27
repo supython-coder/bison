@@ -15,6 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# b4_tname_if(TNAME-NEEDED, TNAME-NOT-NEEDED)
+# -------------------------------------------
+m4_define([b4_tname_if],
+[m4_case(b4_percent_define_get([[parse.error]]),
+         [verbose],         [$1],
+         [b4_token_table_if([$1],
+                            [$2])])])
 
 # This skeleton produces a C++ class that encapsulates a C glr parser.
 # This is in order to reduce the maintenance burden.  The glr.c
@@ -224,6 +231,33 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
   }
 ]])[
 
+]b4_parse_error_bmatch([simple\|verbose],
+[[#if ]b4_api_PREFIX[DEBUG]b4_tname_if([[ || 1]])[
+  // YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
+  // First, the terminals, then, starting at \a YYNTOKENS, nonterminals.
+  const char*
+  const ]b4_parser_class[::yytname_[] =
+  {
+  ]b4_tname[
+  };
+#endif
+]])[
+
+  void
+  ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
+                           const semantic_type* yyvaluep]b4_locations_if([[,
+                           const location_type* yylocationp]])[) const
+  {
+    YYUSE (yyvaluep);
+    if (!yymsg)
+      yymsg = "Deleting";
+    YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
+
+    YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
+    ]b4_symbol_actions([destructor])[
+    YY_IGNORE_MAYBE_UNINITIALIZED_END
+  }
+
 #if ]b4_api_PREFIX[DEBUG
   /*--------------------.
   | Print this symbol.  |
@@ -252,20 +286,6 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
                << *yylocationp << ": "]])[;
     yy_symbol_value_print_ (yykind, yyvaluep]b4_locations_if([[, yylocationp]])[);
     *yycdebug_ << ')';
-  }
-
-  void
-  ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[)
-  {
-    if (!yymsg)
-      yymsg = "Deleting";
-    YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
-
-    YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-    ]b4_symbol_actions([destructor])[
-    YY_IGNORE_MAYBE_UNINITIALIZED_END
   }
 
   std::ostream&
@@ -2501,7 +2521,7 @@ struct yyGLRStack {
         /* Standard special case: single stack.  */
         YYASSERT (yyk.get() == 0);
         yyGLRStackItem* yyrhs = yystateStack.topAt(yyk)->asItem();
-        yystateStack.pop_back(yynrhs);
+        yystateStack.pop_back(YY_CAST (size_t, yynrhs));
         yystateStack.setFirstTop(&yystateStack[yystateStack.size() - 1].getState());
         YY_REDUCE_PRINT ((true, yyrhs, yyk, yyrule]b4_user_args[));
         return yyuserAction (yyrule, yynrhs, yyrhs,
