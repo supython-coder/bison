@@ -2456,7 +2456,7 @@ struct yyGLRStack {
     /* Default location. */
     YYLLOC_DEFAULT ((*yylocp), (yyvsp - yyrhslen), yyrhslen);
     yyerror_range[1].getState().yyloc = *yylocp;
-  ]])[
+]])[
   #if YY_EXCEPTIONS
     typedef ]b4_namespace_ref[::]b4_parser_class[::syntax_error syntax_error;
     try
