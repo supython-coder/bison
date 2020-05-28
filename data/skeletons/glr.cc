@@ -564,7 +564,7 @@ class StrongIndexAlias
 [b4_output_begin([b4_spec_header_file])
 b4_copyright([Skeleton interface for Bison GLR parsers in C++],
              [2002-2015, 2018-2020])[
-// C++ GLR parser skeleton written by Akim Demaille.
+// C++ GLR parser skeleton written by Valentin Tolmer.
 
 ]b4_disclaimer[
 ]b4_cpp_guard_open([b4_spec_mapped_header_file])[
@@ -3267,9 +3267,6 @@ m4_if(b4_prefix, [yy], [],
 #define yydebug ]b4_prefix[debug
 #define yynerrs ]b4_prefix[nerrs]b4_locations_if([[
 #define yylloc  ]b4_prefix[lloc]])])[
-
-]b4_percent_define_flag_if([[global_tokens_and_yystype]],
-[b4_token_defines])[
 
 ]b4_epilogue[]dnl
 b4_output_end

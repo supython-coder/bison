@@ -493,22 +493,14 @@ m4_define([b4_shared_declarations],
 ]b4_public_types_define([$1])])[
 ]b4_namespace_close[
 
-]b4_percent_define_flag_if([[global_tokens_and_yystype]],
-[b4_token_defines
-
-#ifndef ]b4_api_PREFIX[STYPE
- // Redirection for backward compatibility.
-# define ]b4_api_PREFIX[STYPE b4_namespace_ref::b4_parser_class::semantic_type
-#endif
-])[
 ]b4_percent_code_get([[provides]])[
-]])
+]])[
 
 ## -------------- ##
 ## Output files.  ##
 ## -------------- ##
 
-b4_defines_if(
+]b4_defines_if(
 [b4_output_begin([b4_spec_header_file])
 b4_copyright([Skeleton interface for Bison LALR(1) parsers in C++])
 [
