@@ -2971,8 +2971,14 @@ static inline int
 yygetLRActions (yyStateNum yystate, ]b4_namespace_ref::b4_parser_class[::symbol_kind_type yytoken, const short** yyconflicts)
 {
   int yyindex = yypact[yystate] + yytoken;
-  if (yyisDefaultedState (yystate)
-      || yyindex < 0 || YYLAST < yyindex || yycheck[yyindex] != yytoken)
+  if (yytoken == ]b4_namespace_ref::b4_parser_class[::symbol_kind::]b4_symbol(1, kind)[)
+    {
+      // This is the error token.
+      *yyconflicts = yyconfl;
+      return 0;
+    }
+  else if (yyisDefaultedState (yystate)
+           || yyindex < 0 || YYLAST < yyindex || yycheck[yyindex] != yytoken)
     {
       *yyconflicts = yyconfl;
       return -yydefact[yystate];
