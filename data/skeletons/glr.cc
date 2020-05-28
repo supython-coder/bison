@@ -248,7 +248,8 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
                            const semantic_type* yyvaluep]b4_locations_if([[,
                            const location_type* yylocationp]])[)
   {
-    YYUSE (yyvaluep);
+    YYUSE (yyvaluep);]b4_locations_if([[
+    YYUSE (yylocationp);]])[
     if (!yymsg)
       yymsg = "Deleting";
     ]b4_namespace_ref::b4_parser_class[& yyparser = *this;
@@ -557,9 +558,9 @@ class StrongIndexAlias
 
 ]b4_percent_code_get([[provides]])[
 ]m4_popdef([b4_parse_param])dnl
-])
+])[
 
-b4_defines_if(
+]b4_defines_if(
 [b4_output_begin([b4_spec_header_file])
 b4_copyright([Skeleton interface for Bison GLR parsers in C++],
              [2002-2015, 2018-2020])[
@@ -847,7 +848,7 @@ static YYLTYPE yyloc_default][]b4_yyloc_default;])[
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
    as returned by yylex, with out-of-bounds checking.  */
 ]b4_api_token_raw_if(dnl
-[[#define YYTRANSLATE(YYX) YY_CAST (]b4_namespace_ref::b4_parser_class[::yysymbol_kind_t, YYX)]],
+[[#define YYTRANSLATE(YYX) YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, YYX)]],
 [[#define YYTRANSLATE(YYX)                                \
   (0 <= (YYX) && (YYX) <= ]b4_code_max[                     \
    ? YY_CAST (]b4_namespace_ref::b4_parser_class[::symbol_kind_type, yytranslate[YYX])        \
@@ -2060,7 +2061,7 @@ struct yyGLRStack {
     , yystateStack(yysize)
     , yyerrcnt(0)
     , yyrawchar(0)
-    , ]b4_parse_param_cons[
+    ,]b4_parse_param_cons[
   {}
 
   ~yyGLRStack ()
@@ -3260,6 +3261,9 @@ m4_if(b4_prefix, [yy], [],
 #define yydebug ]b4_prefix[debug
 #define yynerrs ]b4_prefix[nerrs]b4_locations_if([[
 #define yylloc  ]b4_prefix[lloc]])])[
+
+]b4_percent_define_flag_if([[global_tokens_and_yystype]],
+[b4_token_defines])[
 
 ]b4_epilogue[]dnl
 b4_output_end
