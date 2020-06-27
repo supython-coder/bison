@@ -104,274 +104,15 @@ m4_defn([b4_initial_action])]))])[
 [static void
 yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_type *yylocationp,
          ]])[]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param),
-         ])[const char* msg);]])[
-
-# Inserted before the epilogue to define implementations (yyerror, parser member
-# functions etc.).
-]m4_define([b4_glr_cc_pre_epilogue],
-[b4_syncline([@oline@], [@ofile@])dnl
-[
-/*------------------.
-| Report an error.  |
-`------------------*/
-
-static void
-yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_type *yylocationp,
-         ]])[]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param),
-         ])[const std::string& msg)
-{
-]b4_parse_param_use[]dnl
-[  yyparser.error (]b4_locations_if([[*yylocationp, ]])[msg);
-}
+         ])[const std::string& msg);]])[
 
 
-]b4_namespace_open[
-]dnl In this section, the parse params are the original parse_params.
-m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
-[  /// Build a parser object.
-  ]b4_parser_class::b4_parser_class[ (]b4_parse_param_decl[)]m4_ifset([b4_parse_param], [
-    :])[
-#if ]b4_api_PREFIX[DEBUG
-    ]m4_ifset([b4_parse_param], [  ], [ :])[yycdebug_ (&std::cerr)]m4_ifset([b4_parse_param], [,])[
-#endif]b4_parse_param_cons[
-  {}
-
-  ]b4_parser_class::~b4_parser_class[ ()
-  {}
-
-  ]b4_parser_class[::syntax_error::~syntax_error () YY_NOEXCEPT YY_NOTHROW
-  {}
-
-  int
-  ]b4_parser_class[::operator() ()
-  {
-    return parse ();
-  }
-
-  int
-  ]b4_parser_class[::parse ()
-  {
-    return ::yyparse (*this]b4_user_args[);
-  }
-
-]b4_parse_error_bmatch([custom\|detailed],
-[[  const char *
-  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
-  {
-    static const char *const yy_sname[] =
-    {
-    ]b4_symbol_names[
-    };]b4_has_translations_if([[
-    /* YYTRANSLATABLE[SYMBOL-NUM] -- Whether YY_SNAME[SYMBOL-NUM] is
-       internationalizable.  */
-    static ]b4_int_type_for([b4_translatable])[ yytranslatable[] =
-    {
-    ]b4_translatable[
-    };
-    return (yysymbol < YYNTOKENS && yytranslatable[yysymbol]
-            ? _(yy_sname[yysymbol])
-            : yy_sname[yysymbol]);]], [[
-    return yy_sname[yysymbol];]])[
-  }
-]],
-[simple],
-[[#if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
-  const char *
-  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
-  {
-    return yytname_[yysymbol];
-  }
-#endif // #if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
-]],
-[verbose],
-[[  /* Return YYSTR after stripping away unnecessary quotes and
-     backslashes, so that it's suitable for yyerror.  The heuristic is
-     that double-quoting is unnecessary unless the string contains an
-     apostrophe, a comma, or backslash (other than backslash-backslash).
-     YYSTR is taken from yytname.  */
-  std::string
-  ]b4_parser_class[::yytnamerr_ (const char *yystr)
-  {
-    if (*yystr == '"')
-      {
-        std::string yyr;
-        char const *yyp = yystr;
-
-        for (;;)
-          switch (*++yyp)
-            {
-            case '\'':
-            case ',':
-              goto do_not_strip_quotes;
-
-            case '\\':
-              if (*++yyp != '\\')
-                goto do_not_strip_quotes;
-              else
-                goto append;
-
-            append:
-            default:
-              yyr += *yyp;
-              break;
-
-            case '"':
-              return yyr;
-            }
-      do_not_strip_quotes: ;
-      }
-
-    return yystr;
-  }
-
-  std::string
-  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
-  {
-    return yytnamerr_ (yytname_[yysymbol]);
-  }
-]])[
-
-]b4_parse_error_bmatch([simple\|verbose],
-[[#if ]b4_api_PREFIX[DEBUG]b4_tname_if([[ || 1]])[
-  // YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
-  // First, the terminals, then, starting at \a YYNTOKENS, nonterminals.
-  const char*
-  const ]b4_parser_class[::yytname_[] =
-  {
-  ]b4_tname[
-  };
-#endif
-]])[
-
-  void
-  ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[)
-  {
-    YYUSE (yyvaluep);]b4_locations_if([[
-    YYUSE (yylocationp);]])[
-    if (!yymsg)
-      yymsg = "Deleting";
-    ]b4_namespace_ref::b4_parser_class[& yyparser = *this;
-    YYUSE (yyparser);
-    YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
-
-    YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
-    ]b4_symbol_actions([destructor])[
-    YY_IGNORE_MAYBE_UNINITIALIZED_END
-  }
-
-#if ]b4_api_PREFIX[DEBUG
-  /*--------------------.
-  | Print this symbol.  |
-  `--------------------*/
-
-  void
-  ]b4_parser_class[::yy_symbol_value_print_ (symbol_kind_type yykind,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[) const
-  {]b4_locations_if([[
-    YYUSE (yylocationp);]])[
-    YYUSE (yyvaluep);
-    std::ostream& yyo = debug_stream ();
-    std::ostream& yyoutput = yyo;
-    YYUSE (yyoutput);
-    ]b4_symbol_actions([printer])[
-  }
-
-  void
-  ]b4_parser_class[::yy_symbol_print_ (symbol_kind_type yykind,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[) const
-  {
-    *yycdebug_ << (yykind < YYNTOKENS ? "token" : "nterm")
-               << ' ' << ]b4_namespace_ref::b4_parser_class[::symbol_name (yykind) << " ("]b4_locations_if([[
-               << *yylocationp << ": "]])[;
-    yy_symbol_value_print_ (yykind, yyvaluep]b4_locations_if([[, yylocationp]])[);
-    *yycdebug_ << ')';
-  }
-
-  std::ostream&
-  ]b4_parser_class[::debug_stream () const
-  {
-    return *yycdebug_;
-  }
-
-  void
-  ]b4_parser_class[::set_debug_stream (std::ostream& o)
-  {
-    yycdebug_ = &o;
-  }
-
-
-  ]b4_parser_class[::debug_level_type
-  ]b4_parser_class[::debug_level () const
-  {
-    return yydebug;
-  }
-
-  void
-  ]b4_parser_class[::set_debug_level (debug_level_type l)
-  {
-    // Actually, it is yydebug which is really used.
-    yydebug = l;
-  }
-
-#endif
-]m4_popdef([b4_parse_param])dnl
-b4_namespace_close[]dnl
-])
-
-
-m4_define([b4_define_symbol_kind],
+]m4_define([b4_define_symbol_kind],
 [m4_format([#define %-15s %s],
            b4_symbol($][1, kind_base),
            b4_namespace_ref[::]b4_parser_class[::symbol_kind::]b4_symbol($1, kind_base))
 ])
 
-# b4_glr_cc_setup
-# ---------------
-# Setup redirections for glr.c: Map the names used in c.m4 to the ones used
-# in c++.m4.
-m4_define([b4_glr_cc_setup],
-[[#undef ]b4_symbol(-2, [id])[
-#define ]b4_symbol(-2, [id])[ ]b4_namespace_ref[::]b4_parser_class[::token::]b4_symbol(-2, [id])[
-#undef ]b4_symbol(0, [id])[
-#define ]b4_symbol(0, [id])[ ]b4_namespace_ref[::]b4_parser_class[::token::]b4_symbol(0, [id])[
-#undef ]b4_symbol(1, [id])[
-#define ]b4_symbol(1, [id])[ ]b4_namespace_ref[::]b4_parser_class[::token::]b4_symbol(1, [id])[
-
-#ifndef ]b4_api_PREFIX[STYPE
-# define ]b4_api_PREFIX[STYPE ]b4_namespace_ref[::]b4_parser_class[::semantic_type
-#endif
-#ifndef ]b4_api_PREFIX[LTYPE
-# define ]b4_api_PREFIX[LTYPE ]b4_namespace_ref[::]b4_parser_class[::location_type
-#endif
-
-typedef ]b4_namespace_ref[::]b4_parser_class[::symbol_kind_type yysymbol_kind_t;
-
-// Expose C++ symbol kinds to C.
-]b4_define_symbol_kind(-2)dnl
-b4_symbol_foreach([b4_define_symbol_kind])])[
-]])
-
-
-m4_define([b4_undef_symbol_kind],
-[[#undef ]b4_symbol($1, kind_base)[
-]])
-
-
-# b4_glr_cc_cleanup
-# -----------------
-# Remove redirections for glr.c.
-m4_define([b4_glr_cc_cleanup],
-[[#undef ]b4_symbol(-2, [id])[
-#undef ]b4_symbol(0, [id])[
-#undef ]b4_symbol(1, [id])[
-
-]b4_undef_symbol_kind(-2)dnl
-b4_symbol_foreach([b4_undef_symbol_kind])dnl
-])
 
 
 # b4_shared_declarations(hh|cc)
@@ -804,6 +545,15 @@ b4_copyright([Skeleton implementation for Bison GLR parsers in C],
 
 ]b4_defines_if([[#include "@basename(]b4_spec_header_file[@)"]],
                [b4_shared_declarations])[
+
+#ifndef ]b4_api_PREFIX[STYPE
+# define ]b4_api_PREFIX[STYPE ]b4_namespace_ref[::]b4_parser_class[::semantic_type
+#endif
+#ifndef ]b4_api_PREFIX[LTYPE
+# define ]b4_api_PREFIX[LTYPE ]b4_namespace_ref[::]b4_parser_class[::location_type
+#endif
+
+typedef ]b4_namespace_ref[::]b4_parser_class[::symbol_kind_type yysymbol_kind_t;
 
 /* Default (constant) value used for initialization for null
    right-hand sides.  Unlike the standard yacc.c template, here we set
@@ -3311,6 +3061,218 @@ m4_if(b4_prefix, [yy], [],
 #define yynerrs ]b4_prefix[nerrs]b4_locations_if([[
 #define yylloc  ]b4_prefix[lloc]])])[
 
-]b4_epilogue[]dnl
+
+/*------------------.
+| Report an error.  |
+`------------------*/
+
+static void
+yyerror (]b4_locations_if([[const ]b4_namespace_ref::b4_parser_class[::location_type *yylocationp,
+         ]])[]m4_ifset([b4_parse_param], [b4_formals(b4_parse_param),
+         ])[const std::string& msg)
+{
+]b4_parse_param_use[]dnl
+[  yyparser.error (]b4_locations_if([[*yylocationp, ]])[msg);
+}
+
+
+]b4_namespace_open[
+]dnl In this section, the parse params are the original parse_params.
+m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
+[  /// Build a parser object.
+  ]b4_parser_class::b4_parser_class[ (]b4_parse_param_decl[)]m4_ifset([b4_parse_param], [
+    :])[
+#if ]b4_api_PREFIX[DEBUG
+    ]m4_ifset([b4_parse_param], [  ], [ :])[yycdebug_ (&std::cerr)]m4_ifset([b4_parse_param], [,])[
+#endif]b4_parse_param_cons[
+  {}
+
+  ]b4_parser_class::~b4_parser_class[ ()
+  {}
+
+  ]b4_parser_class[::syntax_error::~syntax_error () YY_NOEXCEPT YY_NOTHROW
+  {}
+
+  int
+  ]b4_parser_class[::operator() ()
+  {
+    return parse ();
+  }
+
+  int
+  ]b4_parser_class[::parse ()
+  {
+    return ::yyparse (*this]b4_user_args[);
+  }
+
+]b4_parse_error_bmatch([custom\|detailed],
+[[  const char *
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    static const char *const yy_sname[] =
+    {
+    ]b4_symbol_names[
+    };]b4_has_translations_if([[
+    /* YYTRANSLATABLE[SYMBOL-NUM] -- Whether YY_SNAME[SYMBOL-NUM] is
+       internationalizable.  */
+    static ]b4_int_type_for([b4_translatable])[ yytranslatable[] =
+    {
+    ]b4_translatable[
+    };
+    return (yysymbol < YYNTOKENS && yytranslatable[yysymbol]
+            ? _(yy_sname[yysymbol])
+            : yy_sname[yysymbol]);]], [[
+    return yy_sname[yysymbol];]])[
+  }
+]],
+[simple],
+[[#if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+  const char *
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    return yytname_[yysymbol];
+  }
+#endif // #if ]b4_api_PREFIX[DEBUG || ]b4_token_table_flag[
+]],
+[verbose],
+[[  /* Return YYSTR after stripping away unnecessary quotes and
+     backslashes, so that it's suitable for yyerror.  The heuristic is
+     that double-quoting is unnecessary unless the string contains an
+     apostrophe, a comma, or backslash (other than backslash-backslash).
+     YYSTR is taken from yytname.  */
+  std::string
+  ]b4_parser_class[::yytnamerr_ (const char *yystr)
+  {
+    if (*yystr == '"')
+      {
+        std::string yyr;
+        char const *yyp = yystr;
+
+        for (;;)
+          switch (*++yyp)
+            {
+            case '\'':
+            case ',':
+              goto do_not_strip_quotes;
+
+            case '\\':
+              if (*++yyp != '\\')
+                goto do_not_strip_quotes;
+              else
+                goto append;
+
+            append:
+            default:
+              yyr += *yyp;
+              break;
+
+            case '"':
+              return yyr;
+            }
+      do_not_strip_quotes: ;
+      }
+
+    return yystr;
+  }
+
+  std::string
+  ]b4_parser_class[::symbol_name (symbol_kind_type yysymbol)
+  {
+    return yytnamerr_ (yytname_[yysymbol]);
+  }
+]])[
+
+]b4_parse_error_bmatch([simple\|verbose],
+[[#if ]b4_api_PREFIX[DEBUG]b4_tname_if([[ || 1]])[
+  // YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
+  // First, the terminals, then, starting at \a YYNTOKENS, nonterminals.
+  const char*
+  const ]b4_parser_class[::yytname_[] =
+  {
+  ]b4_tname[
+  };
+#endif
+]])[
+
+  void
+  ]b4_parser_class[::yy_destroy_ (const char* yymsg, symbol_kind_type yykind,
+                           const semantic_type* yyvaluep]b4_locations_if([[,
+                           const location_type* yylocationp]])[)
+  {
+    YYUSE (yyvaluep);]b4_locations_if([[
+    YYUSE (yylocationp);]])[
+    if (!yymsg)
+      yymsg = "Deleting";
+    ]b4_namespace_ref::b4_parser_class[& yyparser = *this;
+    YYUSE (yyparser);
+    YY_SYMBOL_PRINT (yymsg, yykind, yyvaluep, yylocationp);
+
+    YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
+    ]b4_symbol_actions([destructor])[
+    YY_IGNORE_MAYBE_UNINITIALIZED_END
+  }
+
+#if ]b4_api_PREFIX[DEBUG
+  /*--------------------.
+  | Print this symbol.  |
+  `--------------------*/
+
+  void
+  ]b4_parser_class[::yy_symbol_value_print_ (symbol_kind_type yykind,
+                           const semantic_type* yyvaluep]b4_locations_if([[,
+                           const location_type* yylocationp]])[) const
+  {]b4_locations_if([[
+    YYUSE (yylocationp);]])[
+    YYUSE (yyvaluep);
+    std::ostream& yyo = debug_stream ();
+    std::ostream& yyoutput = yyo;
+    YYUSE (yyoutput);
+    ]b4_symbol_actions([printer])[
+  }
+
+  void
+  ]b4_parser_class[::yy_symbol_print_ (symbol_kind_type yykind,
+                           const semantic_type* yyvaluep]b4_locations_if([[,
+                           const location_type* yylocationp]])[) const
+  {
+    *yycdebug_ << (yykind < YYNTOKENS ? "token" : "nterm")
+               << ' ' << ]b4_namespace_ref::b4_parser_class[::symbol_name (yykind) << " ("]b4_locations_if([[
+               << *yylocationp << ": "]])[;
+    yy_symbol_value_print_ (yykind, yyvaluep]b4_locations_if([[, yylocationp]])[);
+    *yycdebug_ << ')';
+  }
+
+  std::ostream&
+  ]b4_parser_class[::debug_stream () const
+  {
+    return *yycdebug_;
+  }
+
+  void
+  ]b4_parser_class[::set_debug_stream (std::ostream& o)
+  {
+    yycdebug_ = &o;
+  }
+
+
+  ]b4_parser_class[::debug_level_type
+  ]b4_parser_class[::debug_level () const
+  {
+    return yydebug;
+  }
+
+  void
+  ]b4_parser_class[::set_debug_level (debug_level_type l)
+  {
+    // Actually, it is yydebug which is really used.
+    yydebug = l;
+  }
+
+#endif
+]m4_popdef([b4_parse_param])dnl
+b4_namespace_close[]dnl
+b4_epilogue[]dnl
 b4_output_end
+
+
 m4_popdef([b4_parse_param])
