@@ -18,11 +18,13 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <config.h>
+
+#include "derivation.h"
+
 #include <gl_linked_list.h>
 
 #include "system.h"
-
-#include "derivation.h"
+#include "complain.h"
 
 struct derivation
 {
@@ -55,9 +57,10 @@ derivation_list_prepend (derivation_list dl, derivation *d)
 
 void derivation_list_free (derivation_list dl)
 {
-  gl_list_iterator_t it = gl_list_iterator (dl);
-  derivation *d;
-  while (gl_list_iterator_next (&it, (const void **) &d, NULL))
+  derivation *d = NULL;
+  for (gl_list_iterator_t it = gl_list_iterator (dl);
+       derivation_list_next (&it, &d);
+       )
     if (d != &d_dot)
       derivation_free (d);
   gl_list_free (dl);
@@ -94,9 +97,10 @@ derivation_free (derivation *d)
         {
           if (deriv->children)
             {
-              gl_list_iterator_t it = gl_list_iterator (deriv->children);
-              derivation *child;
-              while (gl_list_iterator_next (&it, (const void **) &child, NULL))
+              derivation *child = NULL;
+              for (gl_list_iterator_t it = gl_list_iterator (deriv->children);
+                   derivation_list_next (&it, &child);
+                   )
                 if (child != &d_dot)
                   gl_list_add_last (free_queue, child);
               gl_list_free (deriv->children);
@@ -114,61 +118,96 @@ derivation_size (const derivation *deriv)
   if (!deriv->children)
     return 1;
   int size = 1;
-  gl_list_iterator_t it = gl_list_iterator (deriv->children);
-  derivation *child;
-  while (gl_list_iterator_next (&it, (const void **) &child, NULL))
+  derivation *child = NULL;
+  for (gl_list_iterator_t it = gl_list_iterator (deriv->children);
+       derivation_list_next (&it, &child);
+       )
     size += derivation_size (child);
   return size;
 }
 
-// these are used rarely enough that I don't think they should be interned.
-void
-derivation_print (const derivation *deriv, FILE *f)
+/* Print DERIV, colored according to COUNTER.
+   Return false if nothing is printed.  */
+static bool
+derivation_print_impl (const derivation *deriv, FILE *f,
+                       bool leaves_only,
+                       int *counter, const char *prefix)
 {
-  if (deriv == &d_dot)
+  if (deriv->children)
     {
-      fputs (" •", f);
-      return;
+      const symbol *sym = symbols[deriv->sym];
+      char style[20];
+      snprintf (style, 20, "cex-%d", *counter);
+      ++*counter;
+      begin_use_class (style, f);
+
+      if (!leaves_only)
+        {
+          fputs (prefix, f);
+          begin_use_class ("cex-step", f);
+          fprintf (f, "%s ::=[ ", sym->tag);
+          end_use_class ("cex-step", f);
+          prefix = "";
+        }
+      bool res = false;
+      derivation *child;
+      for (gl_list_iterator_t it = gl_list_iterator (deriv->children);
+           derivation_list_next (&it, &child);
+           )
+        {
+          if (derivation_print_impl (child, f, leaves_only, counter, prefix))
+            {
+              prefix = " ";
+              res = true;
+            }
+          else if (!leaves_only)
+            prefix = " ";
+        }
+      if (!leaves_only)
+        {
+          begin_use_class ("cex-step", f);
+          if (res)
+            fputs (" ]", f);
+          else
+            fputs ("]", f);
+          end_use_class ("cex-step", f);
+        }
+      end_use_class (style, f);
+      return res;
     }
-  symbol *sym = symbols[deriv->sym];
-  if (!deriv->children)
+  else if (deriv == &d_dot)
     {
-      fprintf (f, " %s", sym->tag);
-      return;
+      fputs (prefix, f);
+      begin_use_class ("cex-dot", f);
+      print_dot (f);
+      end_use_class ("cex-dot", f);
     }
-  gl_list_iterator_t it = gl_list_iterator (deriv->children);
-  derivation *child;
-  fprintf (f, " %s ::=[", sym->tag);
-  while (gl_list_iterator_next (&it, (const void **) &child, NULL))
+  else // leaf.
     {
-      derivation_print (child, f);
-      fputs (" ", f);
+      fputs (prefix, f);
+      const symbol *sym = symbols[deriv->sym];
+      begin_use_class ("cex-leaf", f);
+      fprintf (f, "%s", sym->tag);
+      end_use_class ("cex-leaf", f);
     }
-  fputs ("]", f);
+  return true;
 }
 
 void
-derivation_print_leaves (const derivation *deriv, FILE *f)
+derivation_print (const derivation *deriv, FILE *out, const char *prefix)
 {
-  if (deriv == &d_dot)
-    {
-      fputs ("•", f);
-      return;
-    }
-  if (!deriv->children)
-    {
-      symbol *sym = symbols[deriv->sym];
-      fprintf (f, "%s", sym->tag);
-      return;
-    }
+  int counter = 0;
+  fputs (prefix, out);
+  derivation_print_impl (deriv, out, false, &counter, "");
+  fputc ('\n', out);
+}
 
-  gl_list_iterator_t it = gl_list_iterator (deriv->children);
-  const char *sep = "";
-  derivation *child;
-  while (gl_list_iterator_next (&it, (const void **) &child, NULL))
-    {
-      fputs (sep, f);
-      sep = "  ";
-      derivation_print_leaves (child, f);
-    }
+
+void
+derivation_print_leaves (const derivation *deriv, FILE *out, const char *prefix)
+{
+  int counter = 0;
+  fputs (prefix, out);
+  derivation_print_impl (deriv, out, true, &counter, "");
+  fputc ('\n', out);
 }

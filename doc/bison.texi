@@ -1879,6 +1879,7 @@ Here is the code for the lexical analyzer:
    and tabs, and returns 0 for end-of-input. */
 
 #include <ctype.h>
+#include <stdlib.h>
 @end group
 
 @group
@@ -1895,7 +1896,8 @@ yylex (void)
   if (c == '.' || isdigit (c))
     @{
       ungetc (c, stdin);
-      scanf ("%lf", &yylval);
+      if (scanf ("%lf", &yylval) != 1)
+        abort ();
       return NUM;
     @}
 @end group
@@ -2729,8 +2731,8 @@ yylex (void)
   if (c == '.' || isdigit (c))
     @{
       ungetc (c, stdin);
-      int n = scanf ("%lf", &yylval.NUM);
-      assert (n == 1);
+      if (scanf ("%lf", &yylval.NUM) != 1)
+        abort ();
       return NUM;
     @}
 @end group
@@ -2757,10 +2759,10 @@ Bison generated a definition of @code{YYSTYPE} with a member named
           if (bufsize <= i)
             @{
               bufsize = 2 * bufsize + 40;
-              symbuf = realloc (symbuf, bufsize);
+              symbuf = realloc (symbuf, (size_t) bufsize);
             @}
           /* Add this character to the buffer. */
-          symbuf[i++] = c;
+          symbuf[i++] = (char) c;
           /* Get another character. */
           c = getchar ();
         @}
@@ -2832,13 +2834,13 @@ predefined variables such as @code{pi} or @code{e} as well.
 Add some new functions from @file{math.h} to the initialization list.
 
 @item
-Add another array that contains constants and their values.  Then
-modify @code{init_table} to add these constants to the symbol table.
-It will be easiest to give the constants type @code{VAR}.
+Add another array that contains constants and their values.  Then modify
+@code{init_table} to add these constants to the symbol table.  It will be
+easiest to give the constants type @code{VAR}.
 
 @item
-Make the program report an error if the user refers to an
-uninitialized variable in any way except to store a value in it.
+Make the program report an error if the user refers to an uninitialized
+variable in any way except to store a value in it.
 @end enumerate
 
 @node Grammar File
@@ -5511,12 +5513,12 @@ do @{
 yypstate_delete (ps);
 @end example
 
-If the user decided to use an impure push parser, a few things about
-the generated parser will change.  The @code{yychar} variable becomes
-a global variable instead of a variable in the @code{yypush_parse} function.
-For this reason, the signature of the @code{yypush_parse} function is
-changed to remove the token as a parameter.  A nonreentrant push parser
-example would thus look like this:
+If the user decided to use an impure push parser, a few things about the
+generated parser will change.  The @code{yychar} variable becomes a global
+variable instead of a local one in the @code{yypush_parse} function.  For
+this reason, the signature of the @code{yypush_parse} function is changed to
+remove the token as a parameter.  A nonreentrant push parser example would
+thus look like this:
 
 @example
 extern int yychar;
@@ -5616,13 +5618,13 @@ Specify the grammar's start symbol (@pxref{Start Decl}).
 @end deffn
 
 @deffn {Directive} %expect
-Declare the expected number of shift-reduce conflicts, either overall or
+Declare the expected number of shift/reduce conflicts, either overall or
 for a given rule
 (@pxref{Expect Decl}).
 @end deffn
 
 @deffn {Directive} %expect-rr
-Declare the expected number of reduce-reduce conflicts, either overall or
+Declare the expected number of reduce/reduce conflicts, either overall or
 for a given rule
 (@pxref{Expect Decl}).
 @end deffn
@@ -5920,44 +5922,83 @@ Unaccepted @var{variable}s produce an error.  Some of the accepted
 @var{variable}s are described below.
 
 
-@c ================================================== api.namespace
-@deffn Directive {%define api.namespace} @{@var{namespace}@}
-@itemize
-@item Languages(s): C++
+@c ================================================== api.filename.file
+@anchor{api-filename-type}
+@deffn {Directive} {%define api.filename.type} @{@var{type}@}
 
-@item Purpose: Specify the namespace for the parser class.
-For example, if you specify:
+@itemize @bullet
+@item Language(s): C++
 
-@example
-%define api.namespace @{foo::bar@}
-@end example
-
-Bison uses @code{foo::bar} verbatim in references such as:
-
-@example
-foo::bar::parser::semantic_type
-@end example
-
-However, to open a namespace, Bison removes any leading @code{::} and then
-splits on any remaining occurrences:
-
-@example
-namespace foo @{ namespace bar @{
-  class position;
-  class location;
-@} @}
-@end example
+@item Purpose:
+Define the type of file names in Bison's default location and position
+types. @xref{Exposing the Location Classes}.
 
 @item Accepted Values:
-Any absolute or relative C++ namespace reference without a trailing
-@code{"::"}.  For example, @code{"foo"} or @code{"::foo::bar"}.
+Any type that is printable (via streams) and comparable (with @code{==} and
+@code{!=}).
 
-@item Default Value:
-@code{yy}, unless you used the obsolete @samp{%name-prefix "@var{prefix}"}
-directive.
+@item Default Value: @code{const std::string}.
+
+@item History:
+Introduced in Bison 2.0 as @code{filename_type} (with @code{std::string} as
+default), renamed as @code{api.filename.type} in Bison 3.7 (with @code{const
+std::string} as default).
 @end itemize
 @end deffn
-@c api.namespace
+
+
+@c ================================================== api.header.include
+@deffn Directive {%define api.header.include} @{"header.h"@}
+@deffnx Directive {%define api.header.include} @{<header.h>@}
+@itemize
+@item Languages(s): C (@file{yacc.c})
+
+@item Purpose: Specify how the generated parser should include the generated header.
+
+Historically, when option @option{-D}/@option{--defines} was used,
+@command{bison} generated a header and pasted an exact copy of it into the
+generated parser implementation file.  Since Bison 3.6, it is
+@code{#include}d as @samp{"@var{basename}.h"}, instead of duplicated, unless
+@var{file} is @samp{y.tab}, see below.
+
+The @code{api.header.include} variable allows to control how the generated
+parser @code{#include}s the generated header.  For instance:
+
+@example
+%define api.header.include @{"parse.h"@}
+@end example
+
+@noindent
+or
+
+@example
+%define api.header.include @{<parser/parse.h>@}
+@end example
+
+Using @code{api.header.include} does not change the name of the generated
+header, only how it is included.
+
+To work around limitations of Automake's @command{ylwrap} (which runs
+@command{bison} with @option{--yacc}), @code{api.header.include} is
+@emph{not} predefined when the output file is @file{y.tab.c}.  Define it to
+avoid the duplication.
+
+@item Accepted Values:
+An argument for @code{#include}.
+
+@item Default Value:
+@samp{"@var{header-basename}"}, unless the header file is @file{y.tab.h},
+where @var{header-basename} is the name of the generated header, without
+directory part.  For instance with @command{bison -d calc/parse.y},
+@code{api.header.include} defaults to @samp{"parse.h"}, not
+@samp{"calc/parse.h"}.
+
+@item History:
+Introduced in Bison 3.4.  Defaults to @samp{"@var{basename}.h"} since Bison
+3.7, unless the header file is @file{y.tab.h}.
+@end itemize
+@end deffn
+@c api.header.include
 
 
 @c ================================================== api.location.file
@@ -6036,9 +6077,50 @@ Introduced in Bison 3.2.
 @item Default Value: none
 
 @item History:
-Introduced in Bison 2.7 for C++ and Java, in Bison 3.4 for C.
+Introduced in Bison 2.7 for C++ and Java, in Bison 3.4 for C.  Was
+originally named @code{location_type} in Bison 2.5 and 2.6.
 @end itemize
 @end deffn
+
+
+@c ================================================== api.namespace
+@deffn Directive {%define api.namespace} @{@var{namespace}@}
+@itemize
+@item Languages(s): C++
+
+@item Purpose: Specify the namespace for the parser class.
+For example, if you specify:
+
+@example
+%define api.namespace @{foo::bar@}
+@end example
+
+Bison uses @code{foo::bar} verbatim in references such as:
+
+@example
+foo::bar::parser::semantic_type
+@end example
+
+However, to open a namespace, Bison removes any leading @code{::} and then
+splits on any remaining occurrences:
+
+@example
+namespace foo @{ namespace bar @{
+  class position;
+  class location;
+@} @}
+@end example
+
+@item Accepted Values:
+Any absolute or relative C++ namespace reference without a trailing
+@code{"::"}.  For example, @code{"foo"} or @code{"::foo::bar"}.
+
+@item Default Value:
+@code{yy}, unless you used the obsolete @samp{%name-prefix "@var{prefix}"}
+directive.
+@end itemize
+@end deffn
+@c api.namespace
 
 
 @c ================================================== api.parser.class
@@ -6499,12 +6581,6 @@ Introduced in Bison 3.0.3.
 @c api.value.type
 
 
-@c ================================================== location_type
-@deffn Directive {%define location_type}
-Obsoleted by @code{api.location.type} since Bison 2.7.
-@end deffn
-
-
 @c ================================================== lr.default-reduction
 
 @deffn Directive {%define lr.default-reduction} @var{when}
@@ -6582,7 +6658,10 @@ In C, some important invariants in the implementation of the parser are
 checked when this option is enabled.
 
 In C++, when variants are used (@pxref{C++ Variants}), symbols must be
-constructed and destroyed properly.  This option checks these constraints.
+constructed and destroyed properly.  This option checks these constraints
+using runtime type information (RTTI).  Therefore the generated code cannot
+be compiled with RTTI disabled (via compiler options such as
+@option{-fno-rtti}).
 
 @item Accepted Values: Boolean
 
@@ -8025,10 +8104,9 @@ doing so would produce on the stack the sequence of symbols @code{expr
 @vindex yychar
 @vindex yylval
 @vindex yylloc
-The lookahead token is stored in the variable @code{yychar}.
-Its semantic value and location, if any, are stored in the variables
-@code{yylval} and @code{yylloc}.
-@xref{Action Features}.
+The lookahead token is stored in the variable @code{yychar}.  Its semantic
+value and location, if any, are stored in the variables @code{yylval} and
+@code{yylloc}.  @xref{Action Features}.
 
 @node Shift/Reduce
 @section Shift/Reduce Conflicts
@@ -8245,7 +8323,7 @@ explicitly.  This shift/reduce conflicts occurs in the following situation,
 where the period denotes the current parsing state:
 
 @example
-if @var{e1} then if  @var{e2} then @var{s1} . else @var{s2}
+if @var{e1} then if  @var{e2} then @var{s1} • else @var{s2}
 @end example
 
 The conflict involves the reduction of the rule @samp{IF expr THEN
@@ -9170,7 +9248,7 @@ Ambiguous grammars, since they have strings with more than one possible
 sequence of reductions cannot have deterministic parsers in this sense.
 The same is true of languages that require more than one symbol of
 lookahead, since the parser lacks the information necessary to make a
-decision at the point it must be made in a shift-reduce parser.
+decision at the point it must be made in a shift/reduce parser.
 Finally, as previously mentioned (@pxref{Mysterious Conflicts}),
 there are languages where Bison's default choice of how to
 summarize the input seen so far loses necessary information.
@@ -9180,9 +9258,9 @@ Bison generates a parser that uses a different algorithm, called
 Generalized LR (or GLR).  A Bison GLR
 parser uses the same basic
 algorithm for parsing as an ordinary Bison parser, but behaves
-differently in cases where there is a shift-reduce conflict that has not
+differently in cases where there is a shift/reduce conflict that has not
 been resolved by precedence rules (@pxref{Precedence}) or a
-reduce-reduce conflict.  When a GLR parser encounters such a
+reduce/reduce conflict.  When a GLR parser encounters such a
 situation, it
 effectively @emph{splits} into a several parsers, one for each possible
 shift or reduction.  These parsers then proceed as usual, consuming
@@ -9777,39 +9855,40 @@ and reports the uses of the symbols:
 @group
 Terminals, with rules where they appear
 
-$end (0) 0
-'*' (42) 3
-'+' (43) 1
-'-' (45) 2
-'/' (47) 4
-error (256)
-NUM <ival> (258) 5
-STR <sval> (259)
+    $end (0) 0
+    '*' (42) 3
+    '+' (43) 1
+    '-' (45) 2
+    '/' (47) 4
+    error (256)
+    NUM <ival> (258) 5
+    STR <sval> (259)
 @end group
 
 @group
 Nonterminals, with rules where they appear
 
-$accept (9)
-    on left: 0
-exp <ival> (10)
-    on left: 1 2 3 4 5, on right: 0 1 2 3 4
+    $accept (9)
+        on left: 0
+    exp <ival> (10)
+        on left: 1 2 3 4 5
+        on right: 0 1 2 3 4
 @end group
 @end example
 
 @noindent
 @cindex item
-@cindex pointed rule
-@cindex rule, pointed
-Bison then proceeds onto the automaton itself, describing each state
-with its set of @dfn{items}, also known as @dfn{pointed rules}.  Each
-item is a production rule together with a point (@samp{.}) marking
-the location of the input cursor.
+@cindex dotted rule
+@cindex rule, dotted
+Bison then proceeds onto the automaton itself, describing each state with
+its set of @dfn{items}, also known as @dfn{dotted rules}.  Each item is a
+production rule together with a point (@samp{.}) marking the location of the
+input cursor.
 
 @example
 State 0
 
-    0 $accept: . exp $end
+    0 $accept: • exp $end
 
     NUM  shift, and go to state 1
 
@@ -9839,12 +9918,12 @@ you want to see more detail you can invoke @command{bison} with
 @example
 State 0
 
-    0 $accept: . exp $end
-    1 exp: . exp '+' exp
-    2    | . exp '-' exp
-    3    | . exp '*' exp
-    4    | . exp '/' exp
-    5    | . NUM
+    0 $accept: • exp $end
+    1 exp: • exp '+' exp
+    2    | • exp '-' exp
+    3    | • exp '*' exp
+    4    | • exp '/' exp
+    5    | • NUM
 
     NUM  shift, and go to state 1
 
@@ -9857,25 +9936,25 @@ In the state 1@dots{}
 @example
 State 1
 
-    5 exp: NUM .
+    5 exp: NUM •
 
     $default  reduce using rule 5 (exp)
 @end example
 
 @noindent
 the rule 5, @samp{exp: NUM;}, is completed.  Whatever the lookahead token
-(@samp{$default}), the parser will reduce it.  If it was coming from
-State 0, then, after this reduction it will return to state 0, and will
-jump to state 2 (@samp{exp: go to state 2}).
+(@samp{$default}), the parser will reduce it.  If it was coming from State
+0, then, after this reduction it will return to state 0, and will jump to
+state 2 (@samp{exp: go to state 2}).
 
 @example
 State 2
 
-    0 $accept: exp . $end
-    1 exp: exp . '+' exp
-    2    | exp . '-' exp
-    3    | exp . '*' exp
-    4    | exp . '/' exp
+    0 $accept: exp • $end
+    1 exp: exp • '+' exp
+    2    | exp • '-' exp
+    3    | exp • '*' exp
+    4    | exp • '/' exp
 
     $end  shift, and go to state 3
     '+'   shift, and go to state 4
@@ -9885,12 +9964,11 @@ State 2
 @end example
 
 @noindent
-In state 2, the automaton can only shift a symbol.  For instance,
-because of the item @samp{exp: exp . '+' exp}, if the lookahead is
-@samp{+} it is shifted onto the parse stack, and the automaton
-jumps to state 4, corresponding to the item @samp{exp: exp '+' . exp}.
-Since there is no default action, any lookahead not listed triggers a syntax
-error.
+In state 2, the automaton can only shift a symbol.  For instance, because of
+the item @samp{exp: exp • '+' exp}, if the lookahead is @samp{+} it is
+shifted onto the parse stack, and the automaton jumps to state 4,
+corresponding to the item @samp{exp: exp '+' • exp}.  Since there is no
+default action, any lookahead not listed triggers a syntax error.
 
 @cindex accepting state
 The state 3 is named the @dfn{final state}, or the @dfn{accepting
@@ -9899,7 +9977,7 @@ state}:
 @example
 State 3
 
-    0 $accept: exp $end .
+    0 $accept: exp $end •
 
     $default  accept
 @end example
@@ -9914,7 +9992,7 @@ the reader.
 @example
 State 4
 
-    1 exp: exp '+' . exp
+    1 exp: exp '+' • exp
 
     NUM  shift, and go to state 1
 
@@ -9923,7 +10001,7 @@ State 4
 
 State 5
 
-    2 exp: exp '-' . exp
+    2 exp: exp '-' • exp
 
     NUM  shift, and go to state 1
 
@@ -9932,7 +10010,7 @@ State 5
 
 State 6
 
-    3 exp: exp '*' . exp
+    3 exp: exp '*' • exp
 
     NUM  shift, and go to state 1
 
@@ -9941,7 +10019,7 @@ State 6
 
 State 7
 
-    4 exp: exp '/' . exp
+    4 exp: exp '/' • exp
 
     NUM  shift, and go to state 1
 
@@ -9954,11 +10032,11 @@ As was announced in beginning of the report, @samp{State 8 conflicts:
 @example
 State 8
 
-    1 exp: exp . '+' exp
-    1    | exp '+' exp .
-    2    | exp . '-' exp
-    3    | exp . '*' exp
-    4    | exp . '/' exp
+    1 exp: exp • '+' exp
+    1    | exp '+' exp •
+    2    | exp • '-' exp
+    3    | exp • '*' exp
+    4    | exp • '/' exp
 
     '*'  shift, and go to state 6
     '/'  shift, and go to state 7
@@ -9996,11 +10074,11 @@ with some set of possible lookahead tokens.  When run with
 @example
 State 8
 
-    1 exp: exp . '+' exp
-    1    | exp '+' exp .  [$end, '+', '-', '/']
-    2    | exp . '-' exp
-    3    | exp . '*' exp
-    4    | exp . '/' exp
+    1 exp: exp • '+' exp
+    1    | exp '+' exp •  [$end, '+', '-', '/']
+    2    | exp • '-' exp
+    3    | exp • '*' exp
+    4    | exp • '/' exp
 
     '*'  shift, and go to state 6
     '/'  shift, and go to state 7
@@ -10028,11 +10106,11 @@ The remaining states are similar:
 @group
 State 9
 
-    1 exp: exp . '+' exp
-    2    | exp . '-' exp
-    2    | exp '-' exp .
-    3    | exp . '*' exp
-    4    | exp . '/' exp
+    1 exp: exp • '+' exp
+    2    | exp • '-' exp
+    2    | exp '-' exp •
+    3    | exp • '*' exp
+    4    | exp • '/' exp
 
     '*'  shift, and go to state 6
     '/'  shift, and go to state 7
@@ -10044,11 +10122,11 @@ State 9
 @group
 State 10
 
-    1 exp: exp . '+' exp
-    2    | exp . '-' exp
-    3    | exp . '*' exp
-    3    | exp '*' exp .
-    4    | exp . '/' exp
+    1 exp: exp • '+' exp
+    2    | exp • '-' exp
+    3    | exp • '*' exp
+    3    | exp '*' exp •
+    4    | exp • '/' exp
 
     '/'  shift, and go to state 7
 
@@ -10059,11 +10137,11 @@ State 10
 @group
 State 11
 
-    1 exp: exp . '+' exp
-    2    | exp . '-' exp
-    3    | exp . '*' exp
-    4    | exp . '/' exp
-    4    | exp '/' exp .
+    1 exp: exp • '+' exp
+    2    | exp • '-' exp
+    3    | exp • '*' exp
+    4    | exp • '/' exp
+    4    | exp '/' exp •
 
     '+'  shift, and go to state 4
     '-'  shift, and go to state 5
@@ -10136,9 +10214,9 @@ analysis of the textual report.
 
 @subheading Graphical Representation of States
 
-The items (pointed rules) for each state are grouped together in graph nodes.
-Their numbering is the same as in the verbose file. See the following points,
-about transitions, for examples
+The items (dotted rules) for each state are grouped together in graph nodes.
+Their numbering is the same as in the verbose file. See the following
+points, about transitions, for examples
 
 When invoked with @option{--report=lookaheads}, the lookahead tokens, when
 needed, are shown next to the relevant rule between square brackets as a
@@ -10159,7 +10237,7 @@ shift. The following describes a reduction in the @file{rr.output} file:
 @group
 State 3
 
-    1 exp: a . ";"
+    1 exp: a • ";"
 
     ";"  shift, and go to state 6
 @end group
@@ -10180,8 +10258,8 @@ This is how reductions are represented in the verbose file @file{rr.output}:
 @example
 State 1
 
-    3 a: "0" .  [";"]
-    4 b: "0" .  ["."]
+    3 a: "0" •  [";"]
+    4 b: "0" •  ["."]
 
     "."       reduce using rule 4 (b)
     $default  reduce using rule 3 (a)
@@ -10630,7 +10708,7 @@ when there were errors.  No file was generated (except the reports generated
 by @option{--verbose}, etc.).  In particular, the output files that possibly
 existed were not changed.
 
-@item 63 (mistmatch)
+@item 63 (mismatch)
 when @command{bison} does not meet the version requirements of the grammar
 file. @xref{Require Decl}.  No file was generated or changed.
 @end table
@@ -11842,10 +11920,6 @@ is some time and/or some talented C++ hacker willing to contribute to Bison.
 
 @node C++ Location Values
 @subsection C++ Location Values
-@c - %locations
-@c - class position
-@c - class location
-@c - %define filename_type "const symbol::Symbol"
 
 When the directive @code{%locations} is used, the C++ parser supports
 location tracking, see @ref{Tracking Locations}.
@@ -11867,25 +11941,28 @@ generated, and the user defined type will be used.
 @node C++ position
 @subsubsection C++ @code{position}
 
+@defcv {Type} {position} {filename_type}
+The base type for file names. Defaults to @code{const std::string}.
+@xref{api-filename-type,,@code{api.filename.type}}, to change its definition.
+@end defcv
+
 @defcv {Type} {position} {counter_type}
 The type used to store line and column numbers.  Defined as @code{int}.
 @end defcv
 
-@deftypeop {Constructor} {position} {} position (@code{std::string*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
+@deftypeop {Constructor} {position} {} position (@code{filename_type*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
 Create a @code{position} denoting a given point.  Note that @code{file} is
 not reclaimed when the @code{position} is destroyed: memory managed must be
 handled elsewhere.
 @end deftypeop
 
-@deftypemethod {position} {void} initialize (@code{std::string*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
+@deftypemethod {position} {void} initialize (@code{filename_type*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
 Reset the position to the given values.
 @end deftypemethod
 
-@deftypeivar {position} {std::string*} file
+@deftypeivar {position} {filename_type*} file
 The name of the file.  It will always be handled as a pointer, the parser
-will never duplicate nor deallocate it.  As an experimental feature you may
-change it to @samp{@var{type}*} using @samp{%define filename_type
-"@var{type}"}.
+will never duplicate nor deallocate it.
 @end deftypeivar
 
 @deftypeivar {position} {counter_type} line
@@ -11932,11 +12009,11 @@ Create a @code{Location} from the endpoints of the range.
 @end deftypeop
 
 @deftypeop {Constructor} {location} {} location (@code{const position&} @var{pos} = position())
-@deftypeopx {Constructor} {location} {} location (@code{std::string*} @var{file}, @code{counter_type} @var{line}, @code{counter_type} @var{col})
+@deftypeopx {Constructor} {location} {} location (@code{filename_type*} @var{file}, @code{counter_type} @var{line}, @code{counter_type} @var{col})
 Create a @code{Location} denoting an empty range located at a given point.
 @end deftypeop
 
-@deftypemethod {location} {void} initialize (@code{std::string*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
+@deftypemethod {location} {void} initialize (@code{filename_type*} @var{file} = nullptr, @code{counter_type} @var{line} = 1, @code{counter_type} @var{col} = 1)
 Reset the location to an empty range at the given values.
 @end deftypemethod
 
@@ -13883,7 +13960,7 @@ associated with any of the symbols in the current rule).
 There was also the command @samp{%expect @var{n}} which said not to mention the
 conflicts if there are @var{n} shift/reduce conflicts and no reduce/reduce
 conflicts.  In more recent versions of Bison, @code{%expect} and its
-@code{%expect-rr} variant for reduce-reduce conflicts can be applied to
+@code{%expect-rr} variant for reduce/reduce conflicts can be applied to
 individual rules.
 
 Later versions of Bison added many more new features.
@@ -14185,14 +14262,13 @@ start:
 These tokens prevents the introduction of new conflicts.  As far as the
 parser goes, that is all that is needed.
 
-Now the difficult part is ensuring that the scanner will send these
-tokens first.  If your scanner is hand-written, that should be
-straightforward.  If your scanner is generated by Lex, them there is
-simple means to do it: recall that anything between @samp{%@{ ... %@}}
-after the first @code{%%} is copied verbatim in the top of the generated
-@code{yylex} function.  Make sure a variable @code{start_token} is
-available in the scanner (e.g., a global variable or using
-@code{%lex-param} etc.), and use the following:
+Now the difficult part is ensuring that the scanner will send these tokens
+first.  If your scanner is hand-written, that should be straightforward.  If
+your scanner is generated by Lex, them there is simple means to do it:
+recall that anything between @samp{%@{ ... %@}} after the first @code{%%} is
+copied verbatim in the top of the generated @code{yylex} function.  Make
+sure a variable @code{start_token} is available in the scanner (e.g., a
+global variable or using @code{%lex-param} etc.), and use the following:
 
 @example
   /* @r{Prologue.} */
@@ -15274,6 +15350,7 @@ London, Department of Computer Science, TR-00-12 (December 2000).
 @c LocalWords: YYUNDEF SymbolKind yypcontext YYENOMEM TOKENMAX getBundle
 @c LocalWords: ResourceBundle myResources getString getName getToken
 @c LocalWords: getLocation getExpectedTokens reportSyntaxError bistromathic
+@c LocalWords: TokenKind
 
 @c Local Variables:
 @c ispell-dictionary: "american"

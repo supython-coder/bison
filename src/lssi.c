@@ -38,7 +38,7 @@ typedef struct lssi
   bool free_lookahead;
 } lssi;
 
-lssi *
+static lssi *
 new_lssi (state_item_number si, lssi *p, bitset l, bool free_l)
 {
   lssi *res = xmalloc (sizeof *res);
@@ -49,7 +49,7 @@ new_lssi (state_item_number si, lssi *p, bitset l, bool free_l)
   return res;
 }
 
-void
+static void
 lssi_free (lssi *sn)
 {
   if (sn == NULL)
@@ -117,7 +117,7 @@ lssi_print (lssi *l)
  * Compute the set of state-items that can reach the given conflict item via
  * a combination of transitions or production steps.
  */
-bitset
+static bitset
 eligible_state_items (state_item *target)
 {
   bitset result = bitset_create (nstate_items, BITSET_FIXED);
@@ -186,7 +186,7 @@ shortest_path_from_start (state_item_number target, symbol_number next_sym)
             }
         }
       // For production steps, follow_L is based on the symbol after the
-      // non-terminal being produced.
+      // nonterminal being produced.
       // if no such symbol exists, follow_L is unchanged
       // if the symbol is a terminal, follow_L only contains that terminal
       // if the symbol is not nullable, follow_L is its FIRSTS set
@@ -238,7 +238,7 @@ shortest_path_from_start (state_item_number target, symbol_number next_sym)
     {
       gl_list_free (queue);
       fputs ("Cannot find shortest path to conflict state.", stderr);
-      exit (1);
+      abort ();
     }
   gl_list_t res =
     gl_list_create_empty (GL_LINKED_LIST, NULL, NULL, NULL, true);
@@ -254,7 +254,7 @@ shortest_path_from_start (state_item_number target, symbol_number next_sym)
       gl_list_iterator_t it = gl_list_iterator (res);
       const void *sip;
       while (gl_list_iterator_next (&it, &sip, NULL))
-        print_state_item ((state_item *) sip, stdout);
+        print_state_item ((state_item *) sip, stdout, "");
     }
   return res;
 }

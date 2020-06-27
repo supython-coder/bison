@@ -37,6 +37,10 @@ Only user visible strings are to be translated: error messages, bits of the
 assert/abort), and all the --trace output which is meant for the maintainers
 only.
 
+## Vocabulary
+Use "nonterminal", not "variable" or "non-terminal" or "non terminal".
+Abbreviated as "nterm".
+
 ## Syntax highlighting
 It's quite nice to be in C++ mode when editing lalr1.cc for instance.
 However tools such as Emacs will be fooled by the fact that braces and
@@ -62,6 +66,30 @@ Don't reinvent the wheel: we use gnulib, which features many components.
 Actually, Bison has legacy code that we should replace with gnulib modules
 (e.g., many ad hoc implementations of lists).
 
+#### Includes
+The `#include` directives follow an order:
+- first section for *.c files is `<config.h>`.  Don't include it in header
+  files
+- then, for *.c files, the corresponding *.h file
+- then possibly the `"system.h"` header
+- then the system headers.
+  Consider headers from `lib/` like system headers (i.e., `#include
+  <verify.h>`, not `#include "verify.h"`).
+- then headers from src/ with double quotes (`#include "getargs.h"`).
+
+Keep headers sorted alphabetically in each section.
+
+See also the [Header
+files](https://www.gnu.org/software/gnulib/manual/html_node/Header-files.html)
+and the [Implementation
+files](https://www.gnu.org/software/gnulib/manual/html_node/Implementation-files.html#Implementation-files)
+nodes of the gnulib documentation.
+
+Some source files are in the build tree (e.g., `src/scan-gram.c` made from
+`src/scan-gram.l`).  For them to find the headers from `src/`, we actually
+use `#include "src/getargs.h"` instead of `#include "getargs.h"`---that
+saves us from additional `-I` flags.
+
 ### Skeletons
 We try to use the "typical" coding style for each language.
 
@@ -76,7 +104,7 @@ We indent the CPP directives this way:
 #endif
 ```
 
-Don't indent with leading spaces in the skeletons (it's ok in the grammar
+Don't indent with leading spaces in the skeletons (it's OK in the grammar
 files though, e.g., in `%code {...}` blocks).
 
 On occasions, use `cppi -c` to see where we stand.  We don't aim at full
@@ -87,7 +115,7 @@ of the *.h file, but don't waste time on this.
 Don't hesitate to leave a comment on the `#endif` (e.g., `#endif /* FOO
 */`), especially for long blocks.
 
-There is no conistency on `! defined` vs. `!defined`.  The day gnulib
+There is no consistency on `! defined` vs. `!defined`.  The day gnulib
 decides, we'll follow them.
 
 #### C/C++
@@ -172,6 +200,7 @@ tools we depend upon, including:
 - Automake <http://www.gnu.org/software/automake/>
 - Flex <http://www.gnu.org/software/flex/>
 - Gettext <http://www.gnu.org/software/gettext/>
+- Gperf <http://www.gnu.org/software/gperf/>
 - Graphviz <http://www.graphviz.org>
 - Gzip <http://www.gnu.org/software/gzip/>
 - Help2man <http://www.gnu.org/software/help2man/>
@@ -188,7 +217,7 @@ above packages depends on your system.  The following shell command should
 work for Debian-based systems such as Ubuntu:
 
     sudo apt-get install \
-      autoconf automake autopoint flex graphviz help2man texinfo valgrind
+      autoconf automake autopoint flex gperf graphviz help2man texinfo valgrind
 
 Bison is written using Bison grammars, so there are bootstrapping issues.
 The bootstrap script attempts to discover when the C code generated from the
@@ -413,6 +442,31 @@ Use the `javaexec.sh` script.  For instance to run the parser of test case
 
     $ sh ./_build/javaexec.sh -cp ./_build/tests/testsuite.dir/504 Calc
 
+## Using Sanitizers
+Address sanitizer (ASAN) and undefined-behavior sanitizer (UBSAN) are very
+useful.  Here's one way to set ASAN up with GCC 10 on Mac Ports
+
+1. Configure with
+
+    $ ./configure -C --enable-gcc-warnings \
+        CPPFLAGS='-isystem /opt/local/include' \
+        CC='gcc-mp-10 -fsanitize=address' \
+        CFLAGS='-ggdb' \
+        CXX='g++-mp-10.0 -fsanitize=address' \
+        CXXFLAGS='-ggdb' \
+        LDFLAGS='-L/opt/local/lib'
+
+2. Compile
+
+3. Generate debug symbols:
+
+    $ dsymutil src/bison
+
+4. Run the tests with leak detection enabled
+   (`ASAN_OPTIONS=detect_leaks=1`).  E.g. for counterexamples:
+
+    $ make check-local TESTSUITEFLAGS='-j5 -k cex' ASAN_OPTIONS=detect_leaks=1
+
 ## make maintainer-check-valgrind
 This target uses valgrind both to check bison, and the generated parsers.
 
@@ -528,8 +582,10 @@ LocalWords:  symlinks vti html lt POSIX Cc'ed Graphviz Texinfo autoconf jN
 LocalWords:  automake autopoint graphviz texinfo PROG Wother parsers YYFOO
 LocalWords:  TESTSUITEFLAGS deprec struct gnulib's getopt config ggdb yyfoo
 LocalWords:  bitset fsanitize symlink CFLAGS MERCHANTABILITY ispell wrt YY
-LocalWords:  american Administrivia camlCase yy accessors namespace src
-LocalWords:  getExpectedTokens yyexpectedTokens yygetExpectedTokens
-LocalWords:  regen dogfooding Autotest testsuite
+LocalWords:  american Administrivia camlCase yy accessors namespace src hoc
+LocalWords:  getExpectedTokens yyexpectedTokens yygetExpectedTokens parens
+LocalWords:  regen dogfooding Autotest testsuite getargs CPP BAZ endif cppi
+LocalWords:  cpp javaexec cp Calc ASAN UBSAN CPPFLAGS isystem CXX cex Gperf
+LocalWords:  CXXFLAGS LDFLAGS dsymutil gperf
 
 -->

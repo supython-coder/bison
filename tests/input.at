@@ -1690,8 +1690,8 @@ AT_CLEANUP
 
 AT_SETUP([Unclosed constructs])
 
-# Bison's scan-gram.l once forgot to STRING_FINISH some unclosed
-# constructs, so they were prepended to whatever it STRING_GROW'ed
+# Bison's scan-gram.l once forgot to STRING_FINISH () some unclosed
+# constructs, so they were prepended to whatever it STRING_GROW ()'ed
 # next.  It also threw them away rather than returning them to the
 # parser.  The effect was confusing subsequent error messages.
 
@@ -2220,6 +2220,7 @@ AT_DATA([[input.y]],
 %define namespace "foo"
 %define variant
 %define parser_class_name {parser}
+%define filename_type {filename}
 %%
 start: %empty;
 ]])
@@ -2244,6 +2245,10 @@ input.y:5.1-34: warning: deprecated directive: '%define parser_class_name {parse
     5 | %define parser_class_name {parser}
       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       | %define api.parser.class {parser}
+input.y:6.1-32: warning: deprecated directive: '%define filename_type {filename}', use '%define api.filename.type {filename}' [-Wdeprecated]
+    6 | %define filename_type {filename}
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      | %define api.filename.type {filename}
 input.y:2.1-40: error: invalid value for %define Boolean variable 'lr.keep-unreachable-state'
     2 | %define lr.keep_unreachable_states maybe
       | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2882,6 +2887,7 @@ input.y:13.1-14: note: previous definition
 input.y:14.16-29: warning: %define variable 'parse.error' redefined [-Wother]
 input.y:13.16-29: note: previous definition
 input.y: error: reduce/reduce conflicts: 0 found, 42 expected
+input.y: warning: rerun with option '-Wcounterexamples' to generate conflict counterexamples [-Wother]
 input.y: warning: fix-its can be applied.  Rerun with option '--update'. [-Wother]
 ]])
 

@@ -45,6 +45,7 @@
 #include "muscle-tab.h"
 #include "nullable.h"
 #include "output.h"
+#include "parse-gram.h"
 #include "print-graph.h"
 #include "print-xml.h"
 #include "print.h"
@@ -145,7 +146,8 @@ main (int argc, char *argv[])
       conflicts_update_state_numbers (old_to_new, nstates_old);
       free (old_to_new);
     }
-  if (warning_is_enabled (Wcounterexample))
+  if (report_flag & report_cex
+      || warning_is_enabled (Wcounterexamples))
     counterexample_init ();
   conflicts_print ();
   timevar_pop (tv_conflicts);
@@ -223,9 +225,12 @@ main (int argc, char *argv[])
   counterexample_free ();
   output_file_names_free ();
 
-  /* The scanner memory cannot be released right after parsing, as it
-     contains things such as user actions, prologue, epilogue etc.  */
+  /* The scanner and parser memory cannot be released right after
+     parsing, as it contains things such as user actions, prologue,
+     epilogue etc.  */
   gram_scanner_free ();
+  parser_free ();
+
   muscle_free ();
   code_scanner_free ();
   skel_scanner_free ();

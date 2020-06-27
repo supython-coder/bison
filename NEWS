@@ -2,20 +2,95 @@ GNU Bison NEWS
 
 * Noteworthy changes in release ?.? (????-??-??) [?]
 
-** Changes
-
-  When installed to be relocatable (via configure --enable-relocatable),
-  bison will now also look for a relocated m4.
-
 ** New features
 
 *** File prefix mapping
 
-  Bison learned a new argument, '--file-prefix-map OLD=NEW'. Any file path in
-  the output (specifically #line directives and #ifdef header guards) that
-  being with the prefix OLD will have it replace with the prefix NEW, similar
-  to the -ffile-prefix-map in GCC. This option can be used to make bison output
-  reproducible.
+  Bison learned a new argument, `--file-prefix-map OLD=NEW`.  Any file path
+  in the output (specifically `#line` directives and `#ifdef` header guards)
+  that begins with the prefix OLD will have it replaced with the prefix NEW,
+  similar to the `-ffile-prefix-map` in GCC.  This option can be used to
+  make bison output reproducible.
+
+** Changes
+
+*** Relocatable installation
+
+  When installed to be relocatable (via `configure --enable-relocatable`),
+  bison will now also look for a relocated m4.
+
+*** C++ file names
+
+  The `filename_type` %define variable was renamed `api.filename.type`.
+  Instead of
+
+    %define filename_type "symbol"
+
+  write
+
+    %define api.filename.type {symbol}
+
+  (Or let `bison --update` do it for you).
+
+  It now defaults to `const std::string` instead of `std::string`.
+
+** Bug fixes
+
+*** Include the generated header (yacc.c)
+
+  Historically, when --defines was used, bison generated a header and pasted
+  an exact copy of it into the generated parser implementation file.  Since
+  Bison 3.4 it is possible to specify that the header should be `#include`d,
+  and how.  For instance
+
+    %define api.header.include {"parse.h"}
+
+  or
+
+    %define api.header.include {<parser/parse.h>}
+
+  Now api.header.include defaults to `"header-basename"`, as was intended in
+  Bison 3.4, where `header-basename` is the basename of the generated
+  header.  This is disabled when the generated header is `y.tab.h`, to
+  comply with Automake's ylwrap.
+
+*** String aliases are faithfully propagated
+
+  Bison used to interpret user strings (i.e., decoding backslash escapes)
+  when reading them, and to escape them (i.e., issue non-printable
+  characters as backslash escapes, taking the locale into account) when
+  outputting them.  As a consequence non-ASCII strings (say in UTF-8) ended
+  up "ciphered" as sequences of backslash escapes.  This happened not only
+  in the generated sources (where the compiler will reinterpret them), but
+  also in all the generated reports (text, xml, html, dot, etc.).  Reports
+  were therefore not readable when string aliases were not pure ASCII.
+  Worse yet: the output depended on the user's locale.
+
+  Now Bison faithfully treats the string aliases exactly the way the user
+  spelled them.  This fixes all the aforementioned problems.  However, now,
+  string aliases semantically equivalent but syntactically different (e.g.,
+  "A", "\x41", "\101") are considered to be different.
+
+*** Crash when generating IELR
+
+  An old, well hidden, bug in the generation of IELR parsers was fixed.
+
+* Noteworthy changes in release 3.6.4 (2020-06-15) [stable]
+
+** Bug fixes
+
+  In glr.cc some internal macros leaked in the user's code, and could damage
+  access to the token kinds.
+
+* Noteworthy changes in release 3.6.3 (2020-06-03) [stable]
+
+** Bug fixes
+
+  Incorrect comments in the generated parsers.
+
+  Warnings in push parsers (yacc.c).
+
+  Incorrect display of gotos in LAC traces (lalr1.cc).
 
 * Noteworthy changes in release 3.6.2 (2020-05-17) [stable]
 
@@ -838,11 +913,11 @@ GNU Bison NEWS
 
       ...
 
-  Looking at the output from -v, one can see that the shift-reduce conflict
+  Looking at the output from -v, one can see that the shift/reduce conflict
   here is due to the fact that the parser does not know whether to reduce
   arguments to argument_list until it sees the token _after_ the following
   ','.  By marking the rule with %expect 1 (because there is a conflict in
-  one state), we document the source of the 1 overall shift-reduce conflict.
+  one state), we document the source of the 1 overall shift/reduce conflict.
 
   In GLR parsers, we can use %expect-rr in a rule for reduce/reduce
   conflicts.  In this case, we mark each of the conflicting rules.  For
@@ -957,7 +1032,7 @@ GNU Bison NEWS
 
 ** Bug fixes
 
-*** Incorrect number of reduce-reduce conflicts
+*** Incorrect number of reduce/reduce conflicts
 
   On a grammar such as
 
@@ -4175,7 +4250,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  LocalWords:  yysymbol yytnamerr yyreport ctx ARGMAX yysyntax stderr LPAREN
  LocalWords:  symrec yypcontext TOKENMAX yyexpected YYEMPTY yypstate YYEOF
  LocalWords:  autocompletion bistromathic submessages Cayuela lexcalc hoc
- LocalWords:  yytoken YYUNDEF YYerror
+ LocalWords:  yytoken YYUNDEF YYerror basename Automake's UTF ifdef ffile
+ LocalWords:  gotos readline
 
 Local Variables:
 ispell-dictionary: "american"

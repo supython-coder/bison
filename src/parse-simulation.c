@@ -19,13 +19,14 @@
 
 #include <config.h>
 
+#include "parse-simulation.h"
+
 #include <gl_linked_list.h>
 #include <gl_xlist.h>
 #include <stdlib.h>
 
 #include "lssi.h"
 #include "nullable.h"
-#include "parse-simulation.h"
 
 typedef struct parse_state
 {
@@ -156,7 +157,7 @@ parse_state_derivation_completed (const parse_state *ps)
 derivation *
 parse_state_derivation (const parse_state *ps)
 {
-  return (derivation *)ps->derivs.head_elt;
+  return (derivation *) ps->derivs.head_elt;
 }
 
 const state_item *
@@ -253,10 +254,12 @@ parse_state_completed_steps (const parse_state *ps, int *shifts, int *production
 
   gl_list_t sis = root_ps->state_items.contents;
   int count = 0;
-  gl_list_iterator_t it = gl_list_iterator (sis);
+
   state_item *last = NULL;
   state_item *next = NULL;
-  while (gl_list_iterator_next (&it, (const void **) &next, NULL))
+  for (gl_list_iterator_t it = gl_list_iterator (sis);
+       state_item_list_next (&it, &next);
+       )
     {
       if (last && last->state == next->state)
         ++count;
@@ -270,7 +273,8 @@ typedef void (*chunk_append_fn) (gl_list_t, const void *);
 
 // A version of gl_list_add_last which has the chunk_append_fn
 // signature.
-void list_add_last (gl_list_t list, const void *elt)
+static void
+list_add_last (gl_list_t list, const void *elt)
 {
   gl_list_add_last (list, elt);
 }
@@ -285,22 +289,24 @@ list_flatten_and_split (gl_list_t *list, gl_list_t *rets, int split, int n,
   int ret_array = 0;
   for (int i = 0; i < n; ++i)
     {
+      const void *p = NULL;
       gl_list_iterator_t it = gl_list_iterator (list[i]);
-      gl_list_t l;
-      while (gl_list_iterator_next (&it, (const void **) &l, NULL))
-        {
-          if (!l)
-            continue;
-          gl_list_iterator_t it2 = gl_list_iterator (l);
-          void *si;
-          while (gl_list_iterator_next (&it2, (const void **) &si, NULL))
-            {
-              if (ret_index++ == split)
-                ++ret_array;
-              if (rets[ret_array])
-                append_fn (rets[ret_array], si);
-            }
-        }
+      while (gl_list_iterator_next (&it, &p, NULL))
+        if (p)
+          {
+            gl_list_t l = (gl_list_t) p;
+            const void *si = NULL;
+            gl_list_iterator_t it2 = gl_list_iterator (l);
+            while (gl_list_iterator_next (&it2, &si, NULL))
+              {
+                if (ret_index++ == split)
+                  ++ret_array;
+                if (rets[ret_array])
+                  append_fn (rets[ret_array], si);
+              }
+            gl_list_iterator_free (&it2);
+          }
+      gl_list_iterator_free (&it);
     }
 }
 
@@ -312,7 +318,8 @@ parse_state_list_new (void)
                                true);
 }
 
-void parse_state_list_append (parse_state_list pl, parse_state *ps)
+static void
+parse_state_list_append (parse_state_list pl, parse_state *ps)
 {
   parse_state_retain (ps);
   gl_list_add_last (pl, ps);
@@ -403,7 +410,7 @@ parse_state_lists (parse_state *ps, gl_list_t *sitems,
  * Compute the parse states that result from taking a transition on
  * nullable symbols whenever possible from the given state_item.
  */
-void
+static void
 nullable_closure (parse_state *ps, state_item *si, parse_state_list state_list)
 {
   parse_state *current_ps = ps;
@@ -419,7 +426,7 @@ nullable_closure (parse_state *ps, state_item *si, parse_state_list state_list)
       state_item *nsi = state_items + sin;
       current_ps = copy_parse_state (false, current_ps);
       ps_si_append (current_ps, nsi);
-      ps_derivs_append (current_ps, derivation_new_leaf (sp));
+      ps_derivs_append (current_ps, derivation_new (sp, derivation_list_new ()));
       parse_state_list_append (state_list, current_ps);
     }
 }
@@ -540,11 +547,12 @@ simulate_reduction (parse_state *ps, int rule_len, bitset symbol_set)
         }
       else
         {
-          gl_list_iterator_t it = gl_list_iterator (prev);
-          state_item *psis;
-          while (gl_list_iterator_next (&it, (const void **) &psis, NULL))
+          state_item *psis = NULL;
+          for (gl_list_iterator_t it = gl_list_iterator (prev);
+               state_item_list_next (&it, &psis);
+               )
             {
-              //Prepend the result from the reverse production
+              // Prepend the result from the reverse production.
               parse_state *copy = copy_parse_state (true, new_root);
               ps_si_prepend (copy, psis);
 
@@ -565,7 +573,7 @@ simulate_reduction (parse_state *ps, int rule_len, bitset symbol_set)
 gl_list_t
 parser_prepend (parse_state *ps)
 {
-  gl_list_t result = parse_state_list_new ();
+  gl_list_t res = parse_state_list_new ();
   const state_item *head = ps->state_items.head_elt;
   symbol_number prepend_sym =
     item_number_as_symbol_number (*(head->item - 1));
@@ -577,19 +585,20 @@ parser_prepend (parse_state *ps)
     ps_si_prepend (copy, state_items + sin);
     if (SI_TRANSITION (head))
       ps_derivs_prepend (copy, derivation_new_leaf (prepend_sym));
-    parse_state_list_append (result, copy);
+    parse_state_list_append (res, copy);
   }
-  return result;
+  return res;
 }
 
 void
 print_parse_state (parse_state *ps)
 {
-  printf ("(size %zu depth %d rc %d)\n",
+  FILE *out = stderr;
+  fprintf (out, "(size %zu depth %d rc %d)\n",
           ps->state_items.total_size, ps->depth, ps->reference_count);
-  print_state_item (ps->state_items.head_elt, stdout);
-  print_state_item (ps->state_items.tail_elt, stdout);
+  print_state_item (ps->state_items.head_elt, out, "");
+  print_state_item (ps->state_items.tail_elt, out, "");
   if (ps->derivs.total_size > 0)
-    derivation_print (ps->derivs.head_elt, stdout);
-  putc ('\n', stdout);
+    derivation_print (ps->derivs.head_elt, out, "");
+  putc ('\n', out);
 }

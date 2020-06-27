@@ -132,10 +132,12 @@ if test "$enable_gcc_warnings" = yes; then
     -fparse-all-comments -Wdocumentation
     -Wformat -Wimplicit-fallthrough -Wnull-dereference
     -Wno-sign-compare -Wno-tautological-constant-out-of-range-compare
-    -Wpointer-arith -Wshadow
+    -Wpointer-arith -Wshadow -Wstrict-aliasing
     -Wwrite-strings
     -wr188 -wr2259 -wr3179'
-  warn_c='-Wbad-function-cast -Wstrict-prototypes'
+  warn_c='-Wbad-function-cast
+    -Wmissing-prototypes
+    -Wstrict-prototypes'
   warn_cxx='-Wextra-semi -Wnoexcept -Wold-style-cast -Wundefined-func-template
     -Wweak-vtables'
   # Warnings for the test suite only.

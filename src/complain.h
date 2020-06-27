@@ -36,6 +36,8 @@ void end_use_class (const char *style, FILE *out);
 /** Flush \a out.  */
 void flush (FILE *out);
 
+/** Whether there's styling on OUT.  */
+bool is_styled (FILE *out);
 
 /*-------------.
 | --warnings.  |
@@ -46,7 +48,7 @@ typedef enum
   {
     warning_conflicts_rr,
     warning_conflicts_sr,
-    warning_counterexample,
+    warning_counterexamples,
     warning_dangling_alias,
     warning_deprecated,
     warning_empty_rule,
@@ -107,7 +109,7 @@ typedef enum
 
     Wconflicts_rr     = 1 << warning_conflicts_rr,
     Wconflicts_sr     = 1 << warning_conflicts_sr,
-    Wcounterexample   = 1 << warning_counterexample,
+    Wcounterexamples  = 1 << warning_counterexamples,
     Wdangling_alias   = 1 << warning_dangling_alias,
     Wdeprecated       = 1 << warning_deprecated,
     Wempty_rule       = 1 << warning_empty_rule,
@@ -124,7 +126,7 @@ typedef enum
 
     /**< All above warnings.  */
     Weverything       = ~complaint & ~fatal & ~silent,
-    Wall              = Weverything & ~Wcounterexample & ~Wdangling_alias & ~Wyacc
+    Wall              = Weverything & ~Wcounterexamples & ~Wdangling_alias & ~Wyacc
   } warnings;
 
 /** Whether the warnings of \a flags are all unset.

@@ -61,7 +61,7 @@ hash_pair_free (hash_pair *hp)
   free (hp);
 }
 
-Hash_table *
+static Hash_table *
 hash_pair_table_create (int size)
 {
   return hash_xinitialize (size,
@@ -333,10 +333,10 @@ gen_lookaheads (void)
 
 bitsetv firsts = NULL;
 
-void
+static void
 init_firsts (void)
 {
-  firsts = bitsetv_create (nvars, nsyms, BITSET_FIXED);
+  firsts = bitsetv_create (nnterms, nsyms, BITSET_FIXED);
   for (rule_number i = 0; i < nrules; ++i)
     {
       rule *r = rules + i;
@@ -477,9 +477,9 @@ prune_disabled_paths (void)
 }
 
 void
-print_state_item (const state_item *si, FILE *out)
+print_state_item (const state_item *si, FILE *out, const char *prefix)
 {
-  fprintf (out, "%d:", si->state->number);
+  fputs (prefix, out);
   item_print (si->item, NULL, out);
   putc ('\n', out);
 }
@@ -508,7 +508,7 @@ state_items_report (void)
           if (si->trans >= 0)
             {
               fputs ("    -> ", stdout);
-              print_state_item (state_items + si->trans, stdout);
+              print_state_item (state_items + si->trans, stdout, "");
             }
 
           bitset sets[2] = { si->prods, si->revs };
@@ -523,7 +523,7 @@ state_items_report (void)
                   BITSET_FOR_EACH (biter, b, sin, 0)
                     {
                       fputs (txt[seti], stdout);
-                      print_state_item (state_items + sin, stdout);
+                      print_state_item (state_items + sin, stdout, "");
                     }
                 }
             }
@@ -563,7 +563,7 @@ void
 state_items_free (void)
 {
   for (int i = 0; i < nstate_items; ++i)
-    if (!SI_DISABLED(i))
+    if (!SI_DISABLED (i))
       {
         state_item *si = state_items + i;
         if (si->prods)
