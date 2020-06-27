@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.6.2.74-a1ac8.  */
+/* A Bison parser, made by GNU Bison 3.6.4.118-feb0.  */
 
 /* Bison interface for Yacc-like parsers in C
 
@@ -215,5 +215,12 @@ struct GRAM_LTYPE
 
 
 int gram_parse (void);
+/* "%code provides" blocks.  */
+
+  /* Initialize unquote.  */
+  void parser_init (void);
+  /* Deallocate storage for unquote.  */
+  void parser_free (void);
+
 
 #endif /* !YY_GRAM_SRC_PARSE_GRAM_H_INCLUDED  */
